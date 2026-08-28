@@ -1,0 +1,7 @@
+CREATE TABLE auth_throttle (
+    identifier VARCHAR(210) NOT NULL,
+    failed_count INT UNSIGNED NOT NULL DEFAULT 0,
+    locked_until DATETIME NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (identifier)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

@@ -1,0 +1,233 @@
+@startuml
+
+!define RECTANGLE class
+
+' ============================
+' ACTORS
+' ============================
+actor "Member\n(DeMolay Bataan Member)" as Member
+actor "Chapter Officer\n(Assigned to 1 Chapter)" as Officer
+actor "System Administrator\n(System-wide Admin)" as Admin
+actor "Email/SMTP Service" as EmailService
+
+' ============================
+' SYSTEM BOUNDARY
+' ============================
+package "BloodMatch — DeMolay Bataan Blood Donor Matching Platform" {
+
+  ' ---- ACCOUNT & AUTHENTICATION ----
+  package "Account & Authentication" {
+    usecase "Register Account" as UC_Register
+    usecase "Log In" as UC_Login
+    usecase "Log Out" as UC_Logout
+    usecase "Reset Password" as UC_ResetPassword
+    usecase "Manage Profile" as UC_ManageProfile
+    usecase "Upload Verification Documents" as UC_UploadDocs
+    usecase "Resubmit Verification" as UC_ResubmitVerification
+  }
+
+  ' ---- VERIFICATION & DONOR MANAGEMENT ----
+  package "Verification & Donor Management" {
+    usecase "Review Member Verification" as UC_ReviewVerification
+    usecase "Approve Verification" as UC_ApproveVerification
+    usecase "Reject Verification" as UC_RejectVerification
+    usecase "Enroll as Donor" as UC_EnrollDonor
+    usecase "Manage Donor Availability" as UC_ManageAvailability
+    usecase "Check Donor Eligibility" as UC_CheckEligibility
+    usecase "View Donor Status" as UC_ViewDonorStatus
+  }
+
+  ' ---- BLOOD REQUESTS ----
+  package "Blood Requests" {
+    usecase "Create Blood Request" as UC_CreateRequest
+    usecase "View Blood Requests" as UC_ViewRequests
+    usecase "View Blood Request Details" as UC_ViewRequestDetails
+    usecase "Edit Blood Request" as UC_EditRequest
+    usecase "Cancel Blood Request" as UC_CancelRequest
+  }
+
+  ' ---- BLOOD MATCHING ----
+  package "Blood Matching" {
+    usecase "Find Compatible Donors" as UC_FindDonors
+    usecase "View Match Results" as UC_ViewMatches
+    usecase "Re-run Matching" as UC_RerunMatching
+    usecase "Respond to Match" as UC_RespondToMatch
+  }
+
+  ' ---- DONATION ----
+  package "Donation" {
+    usecase "Submit Donation Report" as UC_SubmitDonationReport
+    usecase "Confirm Donation" as UC_ConfirmDonation
+    usecase "Reject Donation" as UC_RejectDonation
+    usecase "Fulfill Blood Request" as UC_FulfillRequest
+  }
+
+  ' ---- NOTIFICATIONS ----
+  package "Notifications" {
+    usecase "Receive Notifications" as UC_ReceiveNotifications
+    usecase "View Notifications" as UC_ViewNotifications
+    usecase "Mark Notification as Read" as UC_MarkRead
+    usecase "Receive Email Alerts" as UC_ReceiveEmailAlerts
+  }
+
+  ' ---- AUDIT ----
+  package "Audit" {
+    usecase "Record System Activity" as UC_RecordAudit
+    usecase "View Audit Logs (Chapter-Scoped)" as UC_ViewAuditOfficer
+    usecase "View Audit Logs (System-Wide)" as UC_ViewAuditAdmin
+  }
+
+  ' ---- ANALYTICS & MONITORING ----
+  package "Analytics & Monitoring" {
+    usecase "View Analytics" as UC_ViewAnalytics
+    usecase "View Regional Blood Demand" as UC_ViewDemandMap
+    usecase "View Officer Dashboard" as UC_ViewOfficerDashboard
+    usecase "View Administrator Dashboard" as UC_ViewAdminDashboard
+  }
+
+  ' ---- ADMINISTRATION ----
+  package "Administration" {
+    usecase "Manage Users" as UC_ManageUsers
+    usecase "Assign Roles" as UC_AssignRoles
+    usecase "Assign Chapter" as UC_AssignChapter
+    usecase "Deactivate/Reactivate Accounts" as UC_DeactivateAccounts
+  }
+}
+
+' ============================
+' ACTOR - USE CASE RELATIONSHIPS
+' ============================
+
+' MEMBER
+Member --> UC_Register
+Member --> UC_Login
+Member --> UC_Logout
+Member --> UC_ResetPassword
+Member --> UC_ManageProfile
+Member --> UC_UploadDocs
+Member --> UC_ResubmitVerification
+Member --> UC_EnrollDonor
+Member --> UC_ManageAvailability
+Member --> UC_ViewDonorStatus
+Member --> UC_CreateRequest
+Member --> UC_ViewRequests
+Member --> UC_ViewRequestDetails
+Member --> UC_EditRequest
+Member --> UC_CancelRequest
+Member --> UC_ViewMatches
+Member --> UC_RespondToMatch
+Member --> UC_SubmitDonationReport
+Member --> UC_ViewNotifications
+Member --> UC_MarkRead
+
+' CHAPTER OFFICER
+Officer --> UC_Login
+Officer --> UC_Logout
+Officer --> UC_ResetPassword
+Officer --> UC_ManageProfile
+Officer --> UC_ReviewVerification
+Officer --> UC_ApproveVerification
+Officer --> UC_RejectVerification
+Officer --> UC_ConfirmDonation
+Officer --> UC_RejectDonation
+Officer --> UC_ViewRequests
+Officer --> UC_ViewRequestDetails
+Officer --> UC_ViewMatches
+Officer --> UC_RerunMatching
+Officer --> UC_ViewNotifications
+Officer --> UC_MarkRead
+Officer --> UC_ViewAuditOfficer
+Officer --> UC_ViewAnalytics
+Officer --> UC_ViewDemandMap
+Officer --> UC_ViewOfficerDashboard
+
+' SYSTEM ADMINISTRATOR
+Admin --> UC_Login
+Admin --> UC_Logout
+Admin --> UC_ResetPassword
+Admin --> UC_ManageProfile
+Admin --> UC_ManageUsers
+Admin --> UC_AssignRoles
+Admin --> UC_AssignChapter
+Admin --> UC_DeactivateAccounts
+Admin --> UC_ViewAuditAdmin
+Admin --> UC_ViewAnalytics
+Admin --> UC_ViewDemandMap
+Admin --> UC_ViewAdminDashboard
+Admin --> UC_ReviewVerification
+Admin --> UC_ApproveVerification
+Admin --> UC_RejectVerification
+Admin --> UC_ConfirmDonation
+Admin --> UC_RejectDonation
+Admin --> UC_ViewRequests
+Admin --> UC_ViewRequestDetails
+Admin --> UC_ViewMatches
+Admin --> UC_RerunMatching
+Admin --> UC_ViewNotifications
+Admin --> UC_MarkRead
+
+' EMAIL/SMTP SERVICE (External Actor)
+EmailService --> UC_ReceiveEmailAlerts
+
+' ============================
+' INCLUDE / EXTEND RELATIONSHIPS
+' ============================
+
+' Authentication flows
+UC_Register ..> UC_RecordAudit : <<include>>
+UC_Login ..> UC_RecordAudit : <<include>>
+UC_Logout ..> UC_RecordAudit : <<include>>
+UC_ResetPassword ..> UC_RecordAudit : <<include>>
+
+' Verification workflow
+UC_ReviewVerification ..> UC_ApproveVerification : <<extend>>
+UC_ReviewVerification ..> UC_RejectVerification : <<extend>>
+UC_ApproveVerification ..> UC_RecordAudit : <<include>>
+UC_RejectVerification ..> UC_RecordAudit : <<include>>
+UC_ResubmitVerification ..> UC_RecordAudit : <<include>>
+
+' Blood request workflow
+UC_CreateRequest ..> UC_FindDonors : <<include>>
+UC_CreateRequest ..> UC_RecordAudit : <<include>>
+UC_EditRequest ..> UC_FindDonors : <<extend>>
+UC_EditRequest ..> UC_RecordAudit : <<include>>
+UC_CancelRequest ..> UC_RecordAudit : <<include>>
+
+' Matching workflow
+UC_FindDonors ..> UC_CheckEligibility : <<include>>
+UC_FindDonors ..> UC_RecordAudit : <<include>>
+UC_RerunMatching ..> UC_FindDonors : <<include>>
+UC_RespondToMatch ..> UC_RecordAudit : <<include>>
+
+' Donation workflow
+UC_SubmitDonationReport ..> UC_RecordAudit : <<include>>
+UC_ConfirmDonation ..> UC_FulfillRequest : <<extend>>
+UC_ConfirmDonation ..> UC_RecordAudit : <<include>>
+UC_ConfirmDonation ..> UC_ReceiveNotifications : <<include>>
+UC_RejectDonation ..> UC_RecordAudit : <<include>>
+
+' Fulfillment triggers notification
+UC_FulfillRequest ..> UC_ReceiveNotifications : <<include>>
+
+' Notification workflows
+UC_ReceiveNotifications ..> UC_RecordAudit : <<include>>
+UC_ReceiveEmailAlerts ..> UC_RecordAudit : <<include>>
+
+' Admin workflows
+UC_ManageUsers ..> UC_AssignRoles : <<include>>
+UC_ManageUsers ..> UC_AssignChapter : <<include>>
+UC_ManageUsers ..> UC_DeactivateAccounts : <<include>>
+UC_AssignRoles ..> UC_RecordAudit : <<include>>
+UC_AssignChapter ..> UC_RecordAudit : <<include>>
+UC_DeactivateAccounts ..> UC_RecordAudit : <<include>>
+
+' Officer/Admin verification overlap (Admin is scope-exempt)
+UC_ReviewVerification <.. Admin : <<extend>>
+
+' Dashboard/Analytics dependencies
+UC_ViewOfficerDashboard ..> UC_ViewAnalytics : <<include>>
+UC_ViewOfficerDashboard ..> UC_ViewDemandMap : <<include>>
+UC_ViewAdminDashboard ..> UC_ViewAnalytics : <<include>>
+UC_ViewAdminDashboard ..> UC_ViewDemandMap : <<include>>
+
+@enduml

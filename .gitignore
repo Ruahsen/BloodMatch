@@ -1,0 +1,9 @@
+.env
+node_modules/
+frontend/dist/
+logs/*
+!logs/.gitkeep
+backend/storage/
+vendor/
+.phpunit.result.cache
+*.log
