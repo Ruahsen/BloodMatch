@@ -57,9 +57,6 @@ export default function RegisterPage() {
     <div className="container narrow">
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: 'var(--space-2)' }}>Create your account</h1>
-        <p className="muted" style={{ margin: 0 }}>
-          Join the Bataan BloodMatch network. New accounts start as <strong>Pending Verification</strong> and can browse and create blood requests immediately.
-        </p>
       </div>
 
       {message && <div className="alert alert-error" role="alert">{message}</div>}

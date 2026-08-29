@@ -30,9 +30,6 @@ export default function LoginPage() {
     <div className="container narrow">
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: 'var(--space-2)' }}>Sign in to BloodMatch</h1>
-        <p className="muted" style={{ margin: 0 }}>
-          Enter your credentials to access your donor profile, requests, and chapter actions.
-        </p>
       </div>
 
       {notice && <div className="alert alert-success" role="status">{notice}</div>}

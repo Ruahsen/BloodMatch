@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function AdminAuditLogsPage() {
@@ -71,12 +72,9 @@ export default function AdminAuditLogsPage() {
             <h1 style={{ margin: 0 }}>System-Wide Audit Log Browser</h1>
             <span className="badge badge-open">Global System Scope</span>
           </div>
-          <p className="muted" style={{ margin: 0 }}>
-            Immutable, append-only security and operational audit trail across all chapters, users, and transactions.
-          </p>
         </div>
-        <Link to="/admin/dashboard" className="btn btn-secondary btn-sm">
-          ← Admin Dashboard
+        <Link to="/admin/dashboard" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <ArrowLeft size={14} weight="regular" aria-hidden="true" /> Admin Dashboard
         </Link>
       </header>
 
@@ -258,16 +256,18 @@ export default function AdminAuditLogsPage() {
                 className="btn btn-secondary btn-sm"
                 disabled={data.page <= 1}
                 onClick={() => setPage((p) => p - 1)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
               >
-                ← Prev
+                <ArrowLeft size={14} weight="regular" aria-hidden="true" /> Prev
               </button>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 disabled={data.page >= (data.total_pages || 1)}
                 onClick={() => setPage((p) => p + 1)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
               >
-                Next →
+                Next <ArrowRight size={14} weight="regular" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -286,8 +286,9 @@ export default function AdminAuditLogsPage() {
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => setSelectedContext(null)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
               >
-                ✕ Close
+                <X size={14} weight="regular" aria-hidden="true" /> Close
               </button>
             </div>
 

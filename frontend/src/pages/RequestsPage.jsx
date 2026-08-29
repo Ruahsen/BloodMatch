@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowRight } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function RequestsPage() {
@@ -53,9 +54,6 @@ export default function RequestsPage() {
       <header className="app-header">
         <div>
           <h1>My Blood Requests</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Track, edit, or manage the blood units you have requested for patients across healthcare facilities.
-          </p>
         </div>
         <Link to="/requests/new" className="btn">
           + Create New Request
@@ -137,8 +135,8 @@ export default function RequestsPage() {
                 </div>
 
                 <div className="button-group" style={{ marginTop: 'var(--space-2)', borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-3)' }}>
-                  <Link to={`/requests/${r.id}/matches`} className="btn btn-sm">
-                    View Potential Matches ➔
+                  <Link to={`/requests/${r.id}/matches`} className="btn btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                    View Potential Matches <ArrowRight size={14} weight="regular" aria-hidden="true" />
                   </Link>
 
                   {r.status === 'OPEN' && (

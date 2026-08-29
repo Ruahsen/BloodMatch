@@ -89,9 +89,6 @@ export default function RequestFormPage() {
         <h1 style={{ marginBottom: 'var(--space-2)' }}>
           {editing ? `Edit Blood Request #${id}` : 'Create Blood Request'}
         </h1>
-        <p className="muted" style={{ margin: 0 }}>
-          Specify the patient&apos;s required blood type and facility location. Compatible volunteer donors in your local chapter will be notified immediately upon submission.
-        </p>
       </div>
 
       {message && <div className="alert alert-error" role="alert">{message}</div>}

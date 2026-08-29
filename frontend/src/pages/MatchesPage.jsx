@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, Check, Info } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -62,7 +63,7 @@ export default function MatchesPage() {
     return (
       <div className="container">
         <div className="alert alert-error" role="alert">{errorAlert}</div>
-        <Link to="/requests/mine" className="btn btn-secondary">← Back to My Requests</Link>
+        <Link to="/requests/mine" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><ArrowLeft size={14} weight="regular" aria-hidden="true" /> Back to My Requests</Link>
       </div>
     )
   }
@@ -82,14 +83,11 @@ export default function MatchesPage() {
       <header className="app-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-            <Link to="/requests/mine" style={{ fontSize: '0.875rem' }}>← My Requests</Link>
+            <Link to="/requests/mine" style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><ArrowLeft size={12} weight="regular" aria-hidden="true" /> My Requests</Link>
             <span className="muted">/</span>
             <span className="muted">Matches</span>
           </div>
           <h1>Potential Donors for Request #{id}</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Ranked among verified, enrolled, and available donors in compatible blood groups. Proximity is a ranking factor; red-cell compatibility is strictly enforced.
-          </p>
         </div>
       </header>
 
@@ -98,7 +96,7 @@ export default function MatchesPage() {
 
       {/* Medical Disclaimer Banner */}
       <div className="medical-disclaimer" style={{ marginBottom: 'var(--space-6)' }}>
-        <div style={{ fontSize: '1.25rem' }}>ℹ️</div>
+        <div aria-hidden="true"><Info size={20} weight="regular" /></div>
         <div>
           <strong>Privacy & Medical Notice:</strong> Donor identities are anonymized for safety. Proximity calculations are approximate based on chapter centroids or opted-in coordinates. Clinical confirmation takes place at the destination facility.
         </div>
@@ -161,8 +159,8 @@ export default function MatchesPage() {
                   {isOwnMatch && (
                     <div style={{ marginTop: 'var(--space-3)', borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-3)' }}>
                       {(m.status === 'POTENTIAL' || m.status === 'NOTIFIED') && (
-                        <button type="button" className="btn" onClick={() => onRespond(m.match_id)}>
-                          ✓ I Can Donate: Respond to Request
+                        <button type="button" className="btn" onClick={() => onRespond(m.match_id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Check size={14} weight="regular" aria-hidden="true" /> I Can Donate: Respond to Request
                         </button>
                       )}
 

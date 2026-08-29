@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Check } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 function deepLink(n) {
@@ -78,12 +79,9 @@ export default function NotificationsPage() {
       <header className="app-header">
         <div>
           <h1>Notifications</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Stay updated on match notifications, verification decisions, and donation confirmations.
-          </p>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={markAll}>
-          ✓ Mark All as Read
+        <button type="button" className="btn btn-secondary" onClick={markAll} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Check size={14} weight="regular" aria-hidden="true" /> Mark All as Read
         </button>
       </header>
 
@@ -163,8 +161,8 @@ export default function NotificationsPage() {
 
                   <div className="button-group">
                     {link && (
-                      <Link to={link} className="btn btn-secondary btn-sm">
-                        View Details ➔
+                      <Link to={link} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        View Details <ArrowRight size={14} weight="regular" aria-hidden="true" />
                       </Link>
                     )}
                     {!n.read_at && (
@@ -187,8 +185,9 @@ export default function NotificationsPage() {
             className="btn btn-secondary btn-sm"
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
           >
-            ← Previous Page
+            <ArrowLeft size={14} weight="regular" aria-hidden="true" /> Previous Page
           </button>
           <span className="muted" style={{ fontSize: '0.875rem' }}>
             Page {page} of {totalPages}
@@ -198,8 +197,9 @@ export default function NotificationsPage() {
             className="btn btn-secondary btn-sm"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
           >
-            Next Page →
+            Next Page <ArrowRight size={14} weight="regular" aria-hidden="true" />
           </button>
         </div>
       )}

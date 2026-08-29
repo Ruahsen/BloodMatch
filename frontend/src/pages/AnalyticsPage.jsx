@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ArrowsClockwise } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -59,9 +60,6 @@ export default function AnalyticsPage() {
       <header className="app-header">
         <div>
           <h1>Analytics & Operational Reporting</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Comprehensive lifecycle metrics, blood type demand distributions, and operational volume.
-          </p>
         </div>
       </header>
 
@@ -114,8 +112,8 @@ export default function AnalyticsPage() {
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setRangePreset(90)}>
               Last 90 Days
             </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={fetchAnalytics}>
-              ↻ Refresh
+            <button type="button" className="btn btn-secondary btn-sm" onClick={fetchAnalytics} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <ArrowsClockwise size={14} weight="regular" aria-hidden="true" /> Refresh
             </button>
           </div>
         </div>

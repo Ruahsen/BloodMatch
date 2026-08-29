@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowsClockwise } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -45,9 +46,6 @@ export default function DemandMapPage() {
       <header className="app-header">
         <div>
           <h1>Regional Blood Demand Map</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Aggregated chapter-level demand for active OPEN blood requests. Privacy-protected (no individual coordinates or pins).
-          </p>
         </div>
         <div className="button-group">
           {user?.role === 'officer' && (
@@ -107,8 +105,8 @@ export default function DemandMapPage() {
           </div>
 
           <div>
-            <button type="button" className="btn btn-secondary" onClick={fetchMapData}>
-              ↻ Refresh
+            <button type="button" className="btn btn-secondary" onClick={fetchMapData} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <ArrowsClockwise size={14} weight="regular" aria-hidden="true" /> Refresh
             </button>
           </div>
         </div>

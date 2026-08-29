@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowRight } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function ForgotPasswordPage() {
@@ -26,9 +27,6 @@ export default function ForgotPasswordPage() {
     <div className="container narrow">
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: 'var(--space-2)' }}>Forgot Password</h1>
-        <p className="muted" style={{ margin: 0 }}>
-          Enter your registered email address to receive a secure single-use password reset link.
-        </p>
       </div>
 
       {sent ? (
@@ -40,8 +38,8 @@ export default function ForgotPasswordPage() {
             Please check your inbox. Password reset tokens expire in 30 minutes and can only be used once.
           </p>
           <div style={{ marginTop: 'var(--space-4)' }}>
-            <Link to="/reset-password" className="btn">
-              Enter Reset Token ➔
+            <Link to="/reset-password" className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              Enter Reset Token <ArrowRight size={14} weight="regular" aria-hidden="true" />
             </Link>
           </div>
         </div>

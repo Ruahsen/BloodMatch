@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function OfficerVerificationPage() {
@@ -72,9 +73,6 @@ export default function OfficerVerificationPage() {
       <header className="app-header">
         <div>
           <h1>Member Verifications: Chapter Queue</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Review submitted identification and donor documentation to verify chapter members for donor participation.
-          </p>
         </div>
       </header>
 
@@ -108,8 +106,8 @@ export default function OfficerVerificationPage() {
                       <td><strong>{m.full_name}</strong></td>
                       <td><code>{m.email}</code></td>
                       <td>
-                        <button type="button" className="btn btn-sm" onClick={() => openDetail(m.id)}>
-                          Review Documents ➔
+                        <button type="button" className="btn btn-sm" onClick={() => openDetail(m.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          Review Documents <ArrowRight size={14} weight="regular" aria-hidden="true" />
                         </button>
                       </td>
                     </tr>
@@ -128,8 +126,8 @@ export default function OfficerVerificationPage() {
                 <h2>Reviewing: {detail.user.full_name}</h2>
                 <span className="muted"><code>{detail.user.email}</code></span>
               </div>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDetail(null)}>
-                ← Back to Queue
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDetail(null)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <ArrowLeft size={14} weight="regular" aria-hidden="true" /> Back to Queue
               </button>
             </div>
 

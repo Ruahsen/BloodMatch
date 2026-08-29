@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { Check } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function ResetPasswordPage() {
@@ -35,15 +36,12 @@ export default function ResetPasswordPage() {
     <div className="container narrow">
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: 'var(--space-2)' }}>Reset Your Password</h1>
-        <p className="muted" style={{ margin: 0 }}>
-          Enter the secure reset token from your email and set your new account password.
-        </p>
       </div>
 
       {done ? (
         <div className="card">
-          <div className="alert alert-success" role="status">
-            ✓ Password reset successfully! Redirecting you to sign in…
+          <div className="alert alert-success" role="status" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Check size={16} weight="regular" aria-hidden="true" /> Password reset successfully! Redirecting you to sign in…
           </div>
           <Link to="/login" className="btn" style={{ marginTop: 'var(--space-3)' }}>
             Sign In Now

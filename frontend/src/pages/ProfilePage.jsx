@@ -147,9 +147,6 @@ export default function ProfilePage() {
       <header className="app-header">
         <div>
           <h1>Member Profile & Status</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Manage your personal information, donor enrollment, verification documents, and donation history.
-          </p>
         </div>
       </header>
 

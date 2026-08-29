@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Check } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function OfficerConfirmationsPage() {
@@ -49,9 +50,6 @@ export default function OfficerConfirmationsPage() {
       <header className="app-header">
         <div>
           <h1>Donation Confirmations: Chapter Queue</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Confirm completed donations submitted by matched volunteer donors. Confirming automatically activates the donor&apos;s 42-hour Standby and 90-day Cooldown recovery windows.
-          </p>
         </div>
       </header>
 
@@ -106,8 +104,9 @@ export default function OfficerConfirmationsPage() {
                     className="btn"
                     disabled={processingId === r.id}
                     onClick={() => decide(r.id, 'confirm')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                   >
-                    {processingId === r.id ? 'Processing…' : '✓ Confirm Completed Donation'}
+                    {processingId === r.id ? 'Processing…' : <><Check size={14} weight="regular" aria-hidden="true" /> Confirm Completed Donation</>}
                   </button>
                   <button
                     type="button"

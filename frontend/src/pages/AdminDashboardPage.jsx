@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function AdminDashboardPage() {
@@ -55,9 +56,6 @@ export default function AdminDashboardPage() {
             <h1 style={{ margin: 0 }}>System Administration Dashboard</h1>
             <span className="badge badge-open">Global Overview</span>
           </div>
-          <p className="muted" style={{ margin: 0 }}>
-            Platform-wide KPIs, lifecycle resolution rates, 3-chapter comparison, and system audit trail.
-          </p>
         </div>
         <div className="button-group">
           <Link to="/demand-map" className="btn btn-secondary btn-sm">
@@ -154,25 +152,25 @@ export default function AdminDashboardPage() {
 
           <div className="grid-2">
             <div style={{ padding: 'var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-              <span className="metric-label">🟢 Available</span>
+              <span className="metric-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><CheckCircle size={14} weight="regular" aria-hidden="true" /> Available</span>
               <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{donorPool.available || 0}</div>
               <small className="muted">Ready for matching</small>
             </div>
 
             <div style={{ padding: 'var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-              <span className="metric-label">⏱️ Standby</span>
+              <span className="metric-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><Clock size={14} weight="regular" aria-hidden="true" /> Standby</span>
               <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{donorPool.standby || 0}</div>
               <small className="muted">~42h recovery</small>
             </div>
 
             <div style={{ padding: 'var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-              <span className="metric-label">🛡️ Cooldown</span>
+              <span className="metric-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><ShieldCheck size={14} weight="regular" aria-hidden="true" /> Cooldown</span>
               <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{donorPool.cooldown || 0}</div>
               <small className="muted">~90d safe interval</small>
             </div>
 
             <div style={{ padding: 'var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-              <span className="metric-label">⏸️ Unavailable</span>
+              <span className="metric-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><PauseCircle size={14} weight="regular" aria-hidden="true" /> Unavailable</span>
               <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{donorPool.unavailable || 0}</div>
               <small className="muted">Paused by donor</small>
             </div>
@@ -221,7 +219,7 @@ export default function AdminDashboardPage() {
       <section className="card">
         <div className="card-header">
           <h3>Recent System Activity</h3>
-          <Link to="/admin/audit-logs" style={{ fontSize: '0.8125rem' }}>View Global Audit Trail ➔</Link>
+          <Link to="/admin/audit-logs" style={{ fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>View Global Audit Trail <ArrowRight size={14} weight="regular" aria-hidden="true" /></Link>
         </div>
 
         {recentLogs.length === 0 ? (

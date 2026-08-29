@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -60,9 +61,6 @@ export default function OfficerDashboardPage() {
               {chapter.name} ({chapter.municipality})
             </span>
           </div>
-          <p className="muted" style={{ margin: 0 }}>
-            Operational triage queues, active local blood demand, and volunteer donor pool readiness.
-          </p>
         </div>
         <div className="button-group">
           <Link to="/demand-map" className="btn btn-secondary btn-sm">
@@ -84,8 +82,8 @@ export default function OfficerDashboardPage() {
             </div>
             <p className="metric-sub">Members awaiting document review</p>
           </div>
-          <Link to="/officer/verifications" className="btn btn-sm" style={{ marginTop: 'var(--space-3)' }}>
-            Open Verification Queue ➔
+          <Link to="/officer/verifications" className="btn btn-sm" style={{ marginTop: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            Open Verification Queue <ArrowRight size={14} weight="regular" aria-hidden="true" />
           </Link>
         </div>
 
@@ -97,8 +95,8 @@ export default function OfficerDashboardPage() {
             </div>
             <p className="metric-sub">Completed donation reports to confirm</p>
           </div>
-          <Link to="/officer/confirmations" className="btn btn-sm" style={{ marginTop: 'var(--space-3)' }}>
-            Open Confirmation Queue ➔
+          <Link to="/officer/confirmations" className="btn btn-sm" style={{ marginTop: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            Open Confirmation Queue <ArrowRight size={14} weight="regular" aria-hidden="true" />
           </Link>
         </div>
 
@@ -112,8 +110,8 @@ export default function OfficerDashboardPage() {
               {metrics.total_units_needed || 0} total units currently needed
             </p>
           </div>
-          <Link to="/demand-map" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-3)' }}>
-            View Chapter Demand Map ➔
+          <Link to="/demand-map" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            View Chapter Demand Map <ArrowRight size={14} weight="regular" aria-hidden="true" />
           </Link>
         </div>
       </section>
@@ -166,7 +164,7 @@ export default function OfficerDashboardPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
               <div>
-                <strong>🟢 Available Donors</strong>
+                <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><CheckCircle size={14} weight="regular" aria-hidden="true" /> Available Donors</strong>
                 <div className="muted" style={{ fontSize: '0.75rem' }}>Eligible to receive match notifications</div>
               </div>
               <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>{donorPool.available || 0}</span>
@@ -174,7 +172,7 @@ export default function OfficerDashboardPage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
               <div>
-                <strong>⏱️ Standby Window</strong>
+                <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><Clock size={14} weight="regular" aria-hidden="true" /> Standby Window</strong>
                 <div className="muted" style={{ fontSize: '0.75rem' }}>~42 hours post-donation recovery</div>
               </div>
               <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>{donorPool.standby || 0}</span>
@@ -182,7 +180,7 @@ export default function OfficerDashboardPage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
               <div>
-                <strong>🛡️ Cooldown Window</strong>
+                <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><ShieldCheck size={14} weight="regular" aria-hidden="true" /> Cooldown Window</strong>
                 <div className="muted" style={{ fontSize: '0.75rem' }}>~90 days safe interval protection</div>
               </div>
               <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>{donorPool.cooldown || 0}</span>
@@ -190,7 +188,7 @@ export default function OfficerDashboardPage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
               <div>
-                <strong>⏸️ Unavailable / Paused</strong>
+                <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><PauseCircle size={14} weight="regular" aria-hidden="true" /> Unavailable / Paused</strong>
                 <div className="muted" style={{ fontSize: '0.75rem' }}>Voluntarily paused participation</div>
               </div>
               <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>{donorPool.unavailable || 0}</span>
@@ -203,7 +201,7 @@ export default function OfficerDashboardPage() {
       <section className="card">
         <div className="card-header">
           <h3>Recent Chapter Activity</h3>
-          <Link to="/officer/audit-logs" style={{ fontSize: '0.8125rem' }}>View Full Audit Trail ➔</Link>
+          <Link to="/officer/audit-logs" style={{ fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>View Full Audit Trail <ArrowRight size={14} weight="regular" aria-hidden="true" /></Link>
         </div>
 
         {recentLogs.length === 0 ? (
