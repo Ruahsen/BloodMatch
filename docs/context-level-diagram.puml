@@ -1,0 +1,55 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam defaultTextAlignment center
+skinparam roundCorner 8
+
+skinparam rectangle {
+    BackgroundColor #F8F9FA
+    BorderColor #1A1A1A
+    BorderThickness 1.5
+    FontSize 12
+    FontStyle bold
+    FontColor #1A1A1A
+}
+
+skinparam usecase {
+    BackgroundColor #111827
+    BorderColor #111827
+    BorderThickness 2
+    FontSize 14
+    FontStyle bold
+    FontColor #FFFFFF
+}
+
+skinparam arrow {
+    Color #374151
+    FontColor #1F2937
+    FontSize 10
+    Thickness 1.2
+}
+
+top to bottom direction
+
+rectangle "**Chapter Officer**\n[External Entity]" as Officer
+rectangle "**DeMolay Member**\n[External Entity]" as Member
+rectangle "**System Administrator**\n[External Entity]" as Admin
+rectangle "**Email / SMTP Service**\n[External Entity]" as SmtpService
+
+usecase "**0**\n\n**BloodMatch System**\n\n(Peer-to-Peer Blood Donor Matching\nand Coordination Platform)" as System
+
+Officer -down-> System : 1. Login Credentials\n2. Verification Decisions & Provenance Upgrades\n3. Donation Confirmations / Rejections\n4. Manual Match Regeneration Commands\n5. Chapter-Scoped Queries & Filters
+System -up-> Officer : 1. Authentication Result & Scoped Permissions\n2. Pending Verifications & Submitted Documents\n3. Pending Donation Reports\n4. Chapter Requests & Donor Pool Readiness\n5. Chapter Demand Aggregations & Analytics\n6. Chapter-Scoped Audit Logs & Alerts
+
+Member -right-> System : 1. Registration & Profile Details\n2. Login Credentials & Password Resets\n3. Verification Documents (ID / Donor Card / Consent)\n4. Donor Enrollment & Availability Updates\n5. Blood Request Submissions\n6. Request Edits & Cancellation\n7. Match Response (Willingness to Donate)\n8. Completed Donation Reports\n9. Notification Read Status & Preferences
+System -left-> Member : 1. Authentication Status & Permissions\n2. Profile, Verification & Donor Status\n3. Standby (42h) / Cooldown (90d) Status\n4. Blood Request Details & Status Updates\n5. Potentially Compatible Matches (Anonymized)\n6. In-App Notifications & Alerts
+
+Admin -left-> System : 1. Login Credentials\n2. User Role & Chapter Assignments\n3. Account Deactivation / Reactivation\n4. Administrative Overrides & Decisions\n5. System-Wide Audit & Analytics Queries
+System -right-> Admin : 1. Authentication Status & Admin Permissions\n2. System-Wide User Directory & States\n3. Platform Analytics & Resolution Rates\n4. Regional Demand & 3-Chapter Matrix\n5. Complete, Immutable System Audit Trail\n6. Admin Dashboard Metrics & Platform Health
+
+System -down-> SmtpService : Email Notification Content\n(Recipient Address, Subject, HTML Body)
+SmtpService -up-> System : Delivery Status & Send Response
+
+@enduml
