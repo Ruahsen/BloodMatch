@@ -97,9 +97,10 @@ $r = Invoke-Json $rej.s 'Post' '/api/requests' @{ required_blood_type='O+'; faci
 if ($r.status -eq 403) { Ok 'T02b rejected cannot create' } else { Bad 'T02b' "got $($r.status)" }
 
 # --- T03 pending creates with pending_review ---
+$balangaLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 $r = Invoke-Json $pen.s 'Post' '/api/requests' @{
     required_blood_type='O-'; quantity_units=2; facility_name='Balanga General';
-    latitude=14.67; longitude=120.53; urgency='urgent'; needed_datetime=$future
+    location_id=$balangaLocId; urgency='urgent'; needed_datetime=$future
 } $pen.csrf
 if ($r.status -eq 201 -and $r.body.data.request.review_status -eq 'pending_review' -and $r.body.data.request.status -eq 'OPEN') { Ok 'T03 pending-user request OPEN+pending_review' } else { Bad 'T03' "got $($r.status)" }
 $reqPId = $r.body.data.request.id
@@ -114,8 +115,8 @@ $cases = @(
     @{ n='bad blood type'; b=@{ required_blood_type='Z+'; facility_name='F'; needed_datetime=$future }; f='required_blood_type' },
     @{ n='qty zero'; b=@{ required_blood_type='O+'; quantity_units=0; facility_name='F'; needed_datetime=$future }; f='quantity_units' },
     @{ n='past date'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime='2020-01-01 00:00:00' }; f='needed_datetime' },
-    @{ n='lat only'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime=$future; latitude=14.5 }; f='location' },
-    @{ n='lng out of range'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime=$future; latitude=14.5; longitude=999 }; f='longitude' },
+    @{ n='raw coordinates rejected'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime=$future; latitude=14.5; longitude=120.5 }; f='location_id' },
+    @{ n='bad location_id'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime=$future; location_id=999999 }; f='location_id' },
     @{ n='short facility'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime=$future }; f='facility_name' },
     @{ n='bad urgency'; b=@{ required_blood_type='O+'; facility_name='Fac'; needed_datetime=$future; urgency='whenever' }; f='urgency' }
 )

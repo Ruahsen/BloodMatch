@@ -1,10 +1,12 @@
 # BloodMatch — API Inventory & Contract Reference
 
-This document provides a comprehensive inventory of all API routes implemented in BloodMatch (`backend/public/index.php` and `backend/src/Controllers/`).
+> Current as of 2026-09-24 (migrations 001–016). Source: `backend/routes/api.php` (55 method+path registrations) + controllers/services. Historical Phase-17 revision documented 26 endpoints / 001–014 schema (see `docs/test-log-phase17.md`); this file supersedes it. Envelope: `Response::success` → `{success:true,data:{...}}`; `Response::error` → `{success:false,error:{message,details?}}`.
+
+This document provides a comprehensive inventory of all API routes implemented in BloodMatch (`backend/routes/api.php` and `backend/src/Controllers/`).
 
 All responses adhere to the standard JSON envelopes:
-- Success: `{ "status": "success", ...data }` or direct payload with appropriate HTTP 200/201 status code.
-- Error: `{ "error": "Human readable message", "code": "ERROR_CODE", "details": { ...fieldErrors } }` with HTTP 4xx/5xx status code.
+- Success: `{ "success": true, "data": { ... } }` with HTTP 200/201.
+- Error: `{ "success": false, "error": { "message": "Human readable message", "details": { ...fieldErrors } } }` with HTTP 4xx/5xx.
 
 ---
 
@@ -20,9 +22,15 @@ All responses adhere to the standard JSON envelopes:
     "timestamp": "2026-08-27T02:45:00Z",
     "php_version": "8.2.12",
     "database": { "connected": true, "name": "bloodmatch_dev" },
-    "schema": { "migrations_applied": 14 }
+    "schema": { "migrations_applied": 16 }
   }
   ```
+  (`migrations_applied` is 16 on the current 001–016 schema; historical Phase-17 docs show 14.)
+
+### `GET /api/csrf`
+- **Purpose:** Issue per-session CSRF token required on state-changing endpoints (`X-CSRF-Token` header).
+- **Auth:** Public / Anonymous (session-bound).
+- **Response (200):** `{ "success": true, "data": { "csrf_token": "..." } }`
 
 ### `GET /api/chapters`
 - **Purpose:** Retrieve the list of fixed Bataan chapters for registration and filtering.
@@ -38,13 +46,26 @@ All responses adhere to the standard JSON envelopes:
   }
   ```
 
+### `GET /api/locations/municipalities`
+- **Purpose:** Retrieve the 12 Bataan cities/municipalities (PSGC province 030800000) for the cascading location selector.
+- **Auth:** Public / Anonymous.
+- **Response:** `{ "municipalities": [{ "location_id": 161, "psgc_code": "030809000", "name": "Orani" }] }`
+
+### `GET /api/locations/barangays?municipality_code=030809000`
+- **Purpose:** Retrieve barangays of one municipality for the cascading selector (29 for Orani).
+- **Auth:** Public / Anonymous.
+- **Validation:** Missing/unknown `municipality_code` → 400.
+- **Response:** `{ "municipality": { "location_id": 161, ... }, "barangays": [{ "location_id": 183, "psgc_code": "030809023", "name": "Tugatog" }] }`
+
+> Location selections resolve server-side to canonical reference coordinates (`users`/`blood_requests` `location_id` + derived `latitude`/`longitude`). Raw `latitude`/`longitude` keys are rejected on profile/request/register writes (400, `location_id` guidance).
+
 ---
 
 ## 2. Authentication & Password Management
 
 ### `POST /api/register`
-- **Purpose:** Create a new user account (defaults to `member` role, `pending` verification).
-- **Auth:** Public / Anonymous.
+- **Purpose:** Create a new user account (defaults to `member` role, `pending` verification, `active` account). Location is not collected here — raw `latitude`/`longitude` are rejected with `location_id` guidance; set location after registration via `PUT /api/profile`.
+- **Auth:** Public / Anonymous. Requires CSRF token.
 - **Rate Limit:** 5 requests / IP / minute.
 - **Request Body:**
   ```json
@@ -55,11 +76,13 @@ All responses adhere to the standard JSON envelopes:
     "chapter_id": 1,
     "date_of_birth": "1998-05-15",
     "phone": "0917-123-4567",
-    "blood_type": "O+"
+    "blood_type": "O+",
+    "privacy_acknowledged": true
   }
   ```
-- **Response (201):** `{ "message": "User registered successfully", "user_id": 42 }`
-- **Errors:** 400 Validation Error (missing fields, weak password, invalid email), 409 Email already registered.
+  (`privacy_acknowledged` mandatory — `true`/`1`/`"1"`/`"true"`/`"on"`/`"yes"` accepted; missing/false/invalid → 400 + `error.details.privacy_acknowledged`. Verified in `tests/phase3.ps1` T05b–T05d; frontend `RegisterPage.jsx` + `PrivacyNoticeModal.jsx` enforce checkbox + modal.)
+- **Response (201):** `{ "success": true, "data": { "user": { "id": 42, ... } } }`
+- **Errors:** 400 Validation Error (missing fields, weak password, invalid email, missing/invalid `privacy_acknowledged`, raw coordinates), 409 Email already registered.
 
 ### `POST /api/login`
 - **Purpose:** Authenticate user and establish secure, HttpOnly session cookie (`bloodmatch_session`).
@@ -102,17 +125,22 @@ All responses adhere to the standard JSON envelopes:
 - **Response (200):** Contains user details, `capabilities` matrix, `availability_window` status, and list of `documents`.
 
 ### `PUT /api/profile`
-- **Purpose:** Update personal profile details (name, phone, birthdate, self-reported blood type, coordinates).
+- **Purpose:** Update personal profile details (name, phone, birthdate, self-reported blood type, Bataan location).
 - **Auth:** Authenticated.
-- **Request Body:** `{ "full_name": "...", "phone": "...", "date_of_birth": "YYYY-MM-DD", "blood_type": "O+", "latitude": 14.79, "longitude": 120.53 }`
-- **Response (200):** `{ "profile": { ...updatedUser } }`
+- **Request Body:** `{ "full_name": "...", "phone": "...", "date_of_birth": "YYYY-MM-DD", "blood_type": "O+", "location_id": 161 }` — `location_id` references `bataan_locations`; coordinates resolve server-side. Raw `latitude`/`longitude` keys are rejected (400).
+- **Response (200):** `{ "profile": { ...updatedUser, "location": { "municipality_name": "Orani", "barangay_name": null, ... } } }`
 
 ### `POST /api/profile/documents`
 - **Purpose:** Upload identity or donor verification document (JPG, PNG, WEBP, PDF up to 5 MB).
-- **Auth:** Authenticated.
+- **Auth:** Authenticated. Requires CSRF.
 - **Rate Limit:** 10 uploads / 5 minutes (`SEC-LOW-02`).
-- **Multipart Form:** `file` (binary), `doc_type` (`national_id` | `donor_card` | `parental_consent`).
+- **Multipart Form:** `file` (binary), `doc_type` (`national_id` | `donor_card` | `parental_consent`), `privacy_acknowledged` (`1`/`true` mandatory ID Privacy Notice acknowledgment — missing/false → 400 + `error.details.privacy_acknowledged`; verified `tests/phase5.ps1` B1b–B1c; frontend `ProfilePage.jsx` + `PrivacyNoticeModal.jsx`).
 - **Response (201):** `{ "document": { "id": 10, "doc_type": "donor_card", "size_bytes": 104857 } }`
+
+### `GET /api/profile/documents`
+- **Purpose:** List own uploaded documents (metadata only; no file paths).
+- **Auth:** Authenticated (Owner only).
+- **Response (200):** `{ "success": true, "data": { "documents": [ { "id": 10, "doc_type": "national_id", "mime_type": "...", "size_bytes": 104857, "uploaded_at": "..." } ] } }`
 
 ### `GET /api/profile/documents/{id}/file`
 - **Purpose:** Securely stream uploaded document for the document owner.
@@ -142,6 +170,21 @@ All responses adhere to the standard JSON envelopes:
 - **Auth:** Authenticated (Members only).
 - **Response (200):** `{ "reports": [ ...reports ] }`
 
+### `POST /api/profile/picture`
+- **Purpose:** Upload/replace profile picture for navbar avatar (migration 015). JPG/PNG/WEBP ≤5 MB, MIME + `getimagesize` validated, 64-hex server-generated filename in `backend/storage/profile_pictures`; replacement deletes previous file.
+- **Auth:** Authenticated (Owner only). Requires CSRF.
+- **Rate Limit:** 10 uploads / 5 minutes.
+- **Multipart Form:** `file` (binary image).
+- **Response (200):** `{ "success": true, "data": { "user": { "id": 42, "profile_picture_url": "/api/profile/picture?v=..." } } }` (null when none).
+- **Errors:** 400 invalid type/empty, 413 over 5 MB, 429 rate-limited. Audited as `profile.picture_updated`. Verified `tests/profile_picture.ps1` P01–P13.
+- **Notes:** Does not affect verification, matching, or eligibility.
+
+### `GET /api/profile/picture`
+- **Purpose:** Stream own profile picture bytes (owner-only; no cross-user access — other user without picture gets 404).
+- **Auth:** Authenticated (Owner only).
+- **Response (200):** image bytes (`Content-Type: image/*`, `Content-Disposition: inline`); 404 when none/invalid/missing.
+- **Frontend:** `ProfilePage.jsx` upload section + `NavbarAvatar` in `App.jsx` (fallback `User` icon when null/fails).
+
 ---
 
 ## 4. Blood Requests & Matching Engine
@@ -163,10 +206,10 @@ All responses adhere to the standard JSON envelopes:
     "facility_name": "Bataan General Hospital",
     "needed_datetime": "2026-08-30T12:00:00Z",
     "urgency": "urgent",
-    "latitude": 14.6765,
-    "longitude": 120.5361
+    "location_id": 26
   }
   ```
+  (`location_id` references `bataan_locations`; facility coordinates resolve server-side. Raw `latitude`/`longitude` keys are rejected. Omitting `location_id` keeps the request location empty — proximity ranking is then skipped for it.)
 - **Response (201):** `{ "message": "Blood request created", "request_id": 101, "matches_count": 4 }`
 
 ### `GET /api/requests/{id}`
@@ -175,8 +218,9 @@ All responses adhere to the standard JSON envelopes:
 - **Response (200):** `{ "request": { ...requestDetails } }`
 
 ### `PUT /api/requests/{id}`
-- **Purpose:** Update facility, needed date, units, or urgency of an active OPEN request.
+- **Purpose:** Update facility, needed date, units, urgency, or Bataan location of an active OPEN request. Location edit is material (coords re-resolved, `request.material_change` audited, regeneration).
 - **Auth:** Authenticated (Request owner only).
+- **Request Body (partial):** `{ "facility_name": "...", "needed_datetime": "...", "quantity_units": 2, "urgency": "urgent", "location_id": 26 }` (raw `latitude`/`longitude` rejected 400).
 - **Response (200):** `{ "message": "Request updated", "request": { ... } }`
 - **Errors:** 403 Forbidden if not owner, 400 Bad Request if request is not in OPEN status.
 
@@ -186,8 +230,8 @@ All responses adhere to the standard JSON envelopes:
 - **Response (200):** `{ "message": "Request cancelled successfully" }`
 
 ### `GET /api/requests/{id}/matches`
-- **Purpose:** View candidate donor matches ranked by red-cell compatibility and geographic distance. Donors are anonymized (`Donor #123`).
-- **Auth:** Authenticated (Request owner, matched donor, Chapter Officer, or Admin).
+- **Purpose:** View candidate donor matches ranked by red-cell compatibility and geographic distance. Privacy-safe: `approximate_distance_km` only; no `latitude`/`longitude`/`phone`/`email`/`password`/`document` fields (verified L13).
+- **Auth:** Authenticated (Request owner, matched donor own-entry only, Chapter Officer same-chapter, or Admin).
 - **Response (200):**
   ```json
   {
@@ -196,7 +240,7 @@ All responses adhere to the standard JSON envelopes:
       {
         "match_id": 501,
         "donor_reference": "donor-42",
-        "display_name": "Donor #42",
+        "display_name": "Maria Santos",
         "chapter_id": 1,
         "chapter_name": "Mt. Samat Chapter",
         "verification_status": "verified",
@@ -207,6 +251,18 @@ All responses adhere to the standard JSON envelopes:
     ]
   }
   ```
+  (Actual `MatchService::privacySafeMatches`: `match_id`, `donor_reference`, `display_name` (full name), `chapter_id`/`chapter_name`, `verification_status`, `availability`, `approximate_distance_km`, `generation`, `status`.)
+
+### `POST /api/officer/requests/{id}/re-match`
+- **Purpose:** Manually re-run matching for an active OPEN request (officer/admin). Uses `MatchService::generateForRequest(..., bump=false, trigger='manual_rematch')`; reconciles without duplicates; audited as `match.manual_rematch`.
+- **Auth:** Authenticated (`officer` or `admin`; chapter-scoped to `request_chapter_id`).
+- **Response (200):** `{ "success": true, "data": { "matching": { "generation": 2, "pool_size": 4, "inserted": 0, "updated": 4, "closed": 0, "notified": 0 } } }`
+- **Errors:** 404 not found, 409 non-OPEN, 403 cross-chapter.
+
+### `GET /api/compatibility-matrix`
+- **Purpose:** Return full 8-type red-cell compatibility matrix (sole consumer otherwise `BloodCompatibilityService`).
+- **Auth:** Authenticated (`officer` or `admin` only).
+- **Response (200):** `{ "success": true, "data": { "matrix": { "A+": ["A+","A-","O+","O-"], ... } } }`
 
 ### `POST /api/matches/{id}/respond`
 - **Purpose:** Donor signals willingness to donate for a notified match. Transitions match status to `RESPONDED`.
@@ -222,6 +278,11 @@ All responses adhere to the standard JSON envelopes:
 ---
 
 ## 5. Chapter Officer Operations (Scoped to Officer's Chapter)
+
+### `GET /api/officer/users`
+- **Purpose:** List member users in the officer's own chapter (chapter isolation enforced; `?chapter_id=` tampering → 403).
+- **Auth:** Authenticated (`officer` role).
+- **Response (200):** `{ "success": true, "data": { "chapter_id": 1, "users": [ ... ] } }`
 
 ### `GET /api/officer/dashboard`
 - **Purpose:** Chapter officer triage metrics, pending verifications, confirmation queues, and donor readiness.
@@ -270,6 +331,28 @@ All responses adhere to the standard JSON envelopes:
 ---
 
 ## 6. System Administration & Global Operations
+
+### `GET /api/admin/users`
+- **Purpose:** List all users system-wide with filters and pagination.
+- **Auth:** Authenticated (`admin` role).
+- **Query Params:** `role`, `verification_status`, `account_status`, `chapter_id`, `q`, `page`, `page_size`.
+- **Response (200):** paginated user list.
+
+### `POST /api/admin/users/{id}/role`
+- **Purpose:** Assign `member`/`officer`/`admin` role (self-change forbidden 403).
+- **Auth:** Authenticated (`admin` role).
+
+### `POST /api/admin/users/{id}/chapter`
+- **Purpose:** Assign/clear user chapter binding (clearing an officer's chapter forbidden 422).
+- **Auth:** Authenticated (`admin` role).
+
+### `POST /api/admin/users/{id}/deactivate`
+- **Purpose:** Soft-deactivate account (`account_status='deactivated'`, `deactivated_at` set; verification untouched; live sessions denied).
+- **Auth:** Authenticated (`admin` role).
+
+### `POST /api/admin/users/{id}/reactivate`
+- **Purpose:** Reactivate soft-deactivated account.
+- **Auth:** Authenticated (`admin` role).
 
 ### `GET /api/admin/dashboard`
 - **Purpose:** Global platform KPIs, total users, 3-chapter comparative matrix, and lifecycle resolution rates.
@@ -322,11 +405,17 @@ All responses adhere to the standard JSON envelopes:
 - **Query Params:** `type`, `read` (`unread` | `read`), `page`, `page_size`.
 - **Response (200):** `{ "total": 12, "page": 1, "page_size": 15, "notifications": [ ... ] }`
 
+### `GET /api/notifications/unread-count`
+- **Purpose:** Live unread counter polled by navbar `NotificationFlyout` (30s) and badge.
+- **Auth:** Authenticated.
+- **Response (200):** `{ "success": true, "data": { "unread_count": 3 } }`
+
 ### `POST /api/notifications/{id}/read`
-- **Purpose:** Mark single notification as read (idempotent).
+- **Purpose:** Mark single notification as read (idempotent; recipient-only, 404 otherwise).
 - **Auth:** Authenticated (Recipient only).
+- **Response (200):** `{ "success": true, "data": { "unread_count": 2 } }`
 
 ### `POST /api/notifications/read-all`
 - **Purpose:** Mark all unread notifications as read for current user.
 - **Auth:** Authenticated.
-- **Response (200):** `{ "message": "All notifications marked as read" }`
+- **Response (200):** `{ "success": true, "data": { "marked_read": 5 } }`

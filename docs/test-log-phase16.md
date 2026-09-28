@@ -1,5 +1,7 @@
 # Phase 16 Verification Log — Security & Performance Hardening
 
+> Historical record (2026-08-27, 15 assertions; regression total 316 as-run with historical phase3 23/23 / phase5 40/40 snapshots). Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 16 security still 15/15; rate limiting now also covers `POST /api/profile/picture`).
+
 Executed: 2026-08-27 · Suite: `tests/phase16_security.ps1` (15 assertions) · **Result: 15 passed, 0 failed**
 Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35**, phase7 **28/28**, phase8 **30/30**, phase9 **16/16**, phase10 **43/43**, phase11 **31/31**, phase12 **32/32** — all suites green (**316 total assertions**)
 Runtime: PHP 8.2.12 dev server → MariaDB @ 3307, DB `bloodmatch_dev`; zero PHP warnings/errors; React production build clean (built in 2.02s)

@@ -11,16 +11,20 @@ final class BloodRequestRepository
 {
     private const SAFE_COLUMNS =
         'br.id, br.requester_id, br.request_chapter_id, br.required_blood_type, br.quantity_units,
-         br.facility_name, br.latitude, br.longitude, br.urgency, br.needed_datetime,
-         br.status, br.review_status, br.created_at, br.updated_at, br.expired_at';
+         br.facility_name, br.location_id, br.latitude, br.longitude, br.urgency, br.needed_datetime,
+         br.status, br.review_status, br.created_at, br.updated_at, br.expired_at,
+         loc.psgc_code AS loc_psgc, loc.name AS loc_name, loc.level AS loc_level,
+         loc.municipality_code AS loc_municipality_code, loc.municipality_name AS loc_municipality_name';
+
+    private const LOCATION_JOIN = ' LEFT JOIN bataan_locations loc ON loc.id = br.location_id';
 
     public function create(array $r): int
     {
         $stmt = Database::pdo()->prepare(
             'INSERT INTO blood_requests
                 (requester_id, request_chapter_id, required_blood_type, quantity_units,
-                 facility_name, latitude, longitude, urgency, needed_datetime, status, review_status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 facility_name, location_id, latitude, longitude, urgency, needed_datetime, status, review_status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $r['requester_id'],
@@ -28,6 +32,7 @@ final class BloodRequestRepository
             $r['required_blood_type'],
             $r['quantity_units'],
             $r['facility_name'],
+            $r['location_id'],
             $r['latitude'],
             $r['longitude'],
             $r['urgency'],
@@ -40,7 +45,7 @@ final class BloodRequestRepository
 
     public function findById(int $id): ?array
     {
-        $stmt = Database::pdo()->prepare('SELECT ' . self::SAFE_COLUMNS . ' FROM blood_requests br WHERE br.id = ? LIMIT 1');
+        $stmt = Database::pdo()->prepare('SELECT ' . self::SAFE_COLUMNS . ' FROM blood_requests br' . self::LOCATION_JOIN . ' WHERE br.id = ? LIMIT 1');
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row === false ? null : $row;
@@ -49,7 +54,7 @@ final class BloodRequestRepository
     public function listByRequester(int $requesterId): array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT ' . self::SAFE_COLUMNS . ' FROM blood_requests br
+            'SELECT ' . self::SAFE_COLUMNS . ' FROM blood_requests br' . self::LOCATION_JOIN . '
              WHERE br.requester_id = ? ORDER BY br.id DESC LIMIT 100'
         );
         $stmt->execute([$requesterId]);
@@ -62,6 +67,7 @@ final class BloodRequestRepository
             'required_blood_type' => 'required_blood_type',
             'quantity_units' => 'quantity_units',
             'facility_name' => 'facility_name',
+            'location_id' => 'location_id',
             'latitude' => 'latitude',
             'longitude' => 'longitude',
             'urgency' => 'urgency',

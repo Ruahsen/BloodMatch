@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ShieldCheck } from '@phosphor-icons/react'
+import { ShieldCheck, User } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useAuth } from '../context/AuthContext'
 import PrivacyNoticeModal, {
   ID_PRIVACY_CHECKBOX_LABEL,
   ID_PRIVACY_TITLE,
   IdPrivacyBody
 } from '../components/PrivacyNoticeModal'
+import LocationSelector from '../components/LocationSelector'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const DOC_TYPES = [
@@ -16,6 +18,7 @@ const DOC_TYPES = [
 ]
 
 export default function ProfilePage() {
+  const { refresh } = useAuth()
   const [profile, setProfile] = useState(null)
   const [form, setForm] = useState(null)
   const [errors, setErrors] = useState({})
@@ -29,6 +32,11 @@ export default function ProfilePage() {
   const [idPrivacyAck, setIdPrivacyAck] = useState(false)
   const [idPrivacyModalOpen, setIdPrivacyModalOpen] = useState(false)
   const [idPrivacyError, setIdPrivacyError] = useState(null)
+  const [pictureFile, setPictureFile] = useState(null)
+  const [pictureInputKey, setPictureInputKey] = useState(0)
+  const [pictureUploading, setPictureUploading] = useState(false)
+  const [pictureFailed, setPictureFailed] = useState(false)
+  const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
 
   const load = () =>
     api
@@ -39,9 +47,13 @@ export default function ProfilePage() {
           full_name: data.profile.full_name,
           phone: data.profile.phone || '',
           date_of_birth: data.profile.date_of_birth || '',
-          blood_type: data.profile.blood_type || '',
-          latitude: data.profile.latitude ?? '',
-          longitude: data.profile.longitude ?? ''
+          blood_type: data.profile.blood_type || ''
+        })
+        const loc = data.profile.location
+        setLocation({
+          location_id: loc?.location_id ?? null,
+          municipality_code: loc?.municipality_code ?? null,
+          barangay_code: loc?.barangay_code ?? null
         })
         if (data.profile.role === 'member') {
           return api.get('/api/my/donation-reports').then((d) => setReports(d.reports || []))
@@ -81,6 +93,33 @@ export default function ProfilePage() {
     load()
   }, [])
 
+  useEffect(() => {
+    setPictureFailed(false)
+  }, [profile?.profile_picture_url])
+
+  const onPictureUpload = async (e) => {
+    e.preventDefault()
+    setMessage(null)
+    setErrorAlert(null)
+    if (!pictureFile) {
+      setErrorAlert('Please select an image to upload.')
+      return
+    }
+    setPictureUploading(true)
+    try {
+      await api.upload('/api/profile/picture', pictureFile)
+      setPictureFile(null)
+      setPictureInputKey((k) => k + 1)
+      await load()
+      await refresh()
+      setMessage('Profile picture updated successfully.')
+    } catch (err) {
+      setErrorAlert(err.message)
+    } finally {
+      setPictureUploading(false)
+    }
+  }
+
   const setField = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }))
 
   const onSave = async (e) => {
@@ -88,6 +127,10 @@ export default function ProfilePage() {
     setErrors({})
     setMessage(null)
     setErrorAlert(null)
+    if (!location.location_id) {
+      setErrors({ location_id: ['Please select your municipality or city.'] })
+      return
+    }
     setSubmitting(true)
     try {
       const data = await api.put('/api/profile', {
@@ -95,8 +138,7 @@ export default function ProfilePage() {
         phone: form.phone || null,
         date_of_birth: form.date_of_birth || null,
         blood_type: form.blood_type || null,
-        latitude: form.latitude === '' ? null : Number(form.latitude),
-        longitude: form.longitude === '' ? null : Number(form.longitude)
+        location_id: location.location_id
       })
       setProfile(data.profile)
       setMessage('Profile details saved successfully.')
@@ -158,7 +200,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container" style={{ maxWidth: '800px' }}>
+    <div className="container">
       <header className="app-header">
         <div>
           <h1>Member Profile & Status</h1>
@@ -210,6 +252,46 @@ export default function ProfilePage() {
               </button>
             </div>
           )}
+        </section>
+
+        {/* Section: Profile Picture */}
+        <section className="card" aria-labelledby="profile-picture-heading">
+          <div className="card-header">
+            <h3 id="profile-picture-heading">Profile Picture</h3>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+            {profile.profile_picture_url && !pictureFailed ? (
+              <img
+                className="profile-picture-preview"
+                src={profile.profile_picture_url}
+                alt={`${profile.full_name}'s profile picture`}
+                onError={() => setPictureFailed(true)}
+              />
+            ) : (
+              <span className="profile-picture-preview avatar-fallback" role="img" aria-label="No profile picture uploaded">
+                <User size={32} weight="regular" aria-hidden="true" />
+              </span>
+            )}
+
+            <form onSubmit={onPictureUpload} className="form" style={{ flex: '1 1 240px', minWidth: '240px' }}>
+              <div className="field">
+                <label htmlFor="profile_picture_file">Upload profile picture (JPG, PNG, or WEBP, max 5 MB)</label>
+                <input
+                  key={pictureInputKey}
+                  id="profile_picture_file"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                  onChange={(e) => setPictureFile(e.target.files[0] || null)}
+                />
+                <small className="field-hint">Shown beside your name in the navigation bar. Uploading a new picture replaces the existing one.</small>
+              </div>
+
+              <button type="submit" className="btn btn-secondary" disabled={pictureUploading} style={{ alignSelf: 'flex-start' }}>
+                {pictureUploading ? 'Uploading…' : (profile.profile_picture_url ? 'Replace Picture' : 'Upload Picture')}
+              </button>
+            </form>
+          </div>
         </section>
 
         {/* Section 2: Donor Enrollment & Availability */}
@@ -326,18 +408,21 @@ export default function ProfilePage() {
               {errors.blood_type && <span className="field-error">{errors.blood_type.join(' ')}</span>}
             </div>
 
-            <div className="field">
-              <label htmlFor="lat">Location Coordinates (Optional, used for proximity ranking)</label>
-              <div className="grid-2">
-                <input id="lat" value={form.latitude} onChange={setField('latitude')} placeholder="Latitude (-90 to 90)" />
-                <input id="lng" value={form.longitude} onChange={setField('longitude')} placeholder="Longitude (-180 to 180)" />
-              </div>
-              <small className="field-hint">Your exact coordinates are never exposed to other members; only anonymized distances are displayed.</small>
-              {(errors.latitude || errors.longitude || errors.location) && (
-                <span className="field-error">
-                  {(errors.latitude || errors.longitude || errors.location || []).join(' ')}
-                </span>
-              )}
+            <div className="field" role="group" aria-labelledby="profile-location-heading">
+              <span id="profile-location-heading" className="metric-label" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>Location in Bataan</span>
+              <small className="field-hint" style={{ display: 'block', marginBottom: 'var(--space-3)' }}>
+                Select your municipality or city and optionally your barangay. This helps BloodMatch prioritize
+                compatible donors who are closer to the blood request location. BloodMatch uses an approximate
+                geographic reference for proximity ranking, not your exact address.
+              </small>
+              <LocationSelector
+                municipalityId="profile-municipality"
+                municipalityCode={location.municipality_code}
+                barangayCode={location.barangay_code}
+                onChange={setLocation}
+                errors={errors}
+              />
+              <small className="field-hint">Your exact location is not displayed to other members.</small>
             </div>
 
             <button type="submit" className="btn" disabled={submitting} style={{ alignSelf: 'flex-start' }}>

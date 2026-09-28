@@ -1,5 +1,7 @@
 # Phase 12 Verification Log — Analytics, Regional Demand Map & Officer/Admin Dashboards
 
+> Historical record (2026-08-27, 32 assertions; regression total 301 as-run with historical phase3 23/23 / phase5 40/40 snapshots). Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 12 still 32/32). Demand Map remains chapter centroids only (never individual pins).
+
 Executed: 2026-08-27 · Suite: `tests/phase12.ps1` (32 assertions) · **Result: 32 passed, 0 failed**
 Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35**, phase7 **28/28**, phase8 **30/30**, phase9 **16/16**, phase10 **43/43**, phase11 **31/31** — all suites green (**301 total assertions**)
 Runtime: PHP 8.2.12 dev server → MariaDB @ 3307, DB `bloodmatch_dev`; zero PHP warnings/errors; React production build clean

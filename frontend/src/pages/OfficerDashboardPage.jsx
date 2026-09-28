@@ -52,7 +52,7 @@ export default function OfficerDashboardPage() {
   const recentLogs = data?.recent_activity || []
 
   return (
-    <div className="container" style={{ maxWidth: '960px' }}>
+    <div className="container">
       <header className="app-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>

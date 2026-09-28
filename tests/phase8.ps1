@@ -66,6 +66,7 @@ function Login($email) {
 
 $suffix = "$(Get-Random)"
 $future = (Get-Date).ToUniversalTime().AddDays(2).ToString('yyyy-MM-dd HH:mm:ss')
+$balangaLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 
 Write-Host "== Phase 8 donor availability & donation lifecycle audit =="
 
@@ -115,7 +116,7 @@ DbQuery "UPDATE users SET account_status='active', deactivated_at=NULL WHERE id=
 # ===== B. REQUEST + MATCHING SETUP =====
 $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     required_blood_type='A+'; quantity_units=1; facility_name='Balanga General';
-    needed_datetime=$future; latitude=14.68; longitude=120.54
+    needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $req1Id = $r.body.data.request.id
 if ($r.status -ne 201) { throw "request creation failed: $($r.raw)" }
@@ -150,7 +151,7 @@ if ($r.status -eq 403) { Ok 'D1 non-owner report 403' } else { Bad 'D1' "got $($
 # D2: report on d1's own POTENTIAL match (fresh request -> new generation match)
 $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     required_blood_type='A+'; quantity_units=1; facility_name='Pre State Clinic';
-    needed_datetime=$future; latitude=14.68; longitude=120.54
+    needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $reqPreId = $r.body.data.request.id
 $r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqPreId/matches" $null $reqSess.csrf
@@ -169,7 +170,7 @@ if ($r.status -eq 409) { Ok 'D4 duplicate pending report blocked' } else { Bad '
 DbQuery "DELETE FROM donation_reports WHERE report_note LIKE '%FORCE_FAIL%';"
 $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     required_blood_type='A+'; quantity_units=1; facility_name='Rollback Clinic';
-    needed_datetime=$future; latitude=14.68; longitude=120.54
+    needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $reqRbId = $r.body.data.request.id
 $r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRbId/matches" $null $reqSess.csrf
@@ -229,7 +230,7 @@ DbQuery "UPDATE users SET last_verified_donation_at = NULL WHERE id=$d1;"
 DbQuery "UPDATE users SET donor_availability = 'available' WHERE id=$d1;"
 $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     required_blood_type='A+'; quantity_units=2; facility_name='Two Unit Clinic';
-    needed_datetime=$future; latitude=14.68; longitude=120.54
+    needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $req2Id = $r.body.data.request.id
 $r = Invoke-Json $reqSess.s 'Get' "/api/requests/$req2Id/matches" $null $reqSess.csrf

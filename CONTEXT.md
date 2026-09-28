@@ -131,7 +131,7 @@ STEP 1: Member Registration → STEP 2: Account Verification → STEP 3: Blood R
 
 ### Step 1 — Member Registration
 
-Member creates an account providing: name, contact info, location, blood type, DeMolay/member info, account credentials, and other required registration data.
+Member creates an account providing: name, contact info, blood type, DeMolay/member info (chapter, date of birth), account credentials, mandatory Privacy Notice acknowledgment (`privacy_acknowledged`), and other required registration data. Location is **not** collected during registration (raw `latitude`/`longitude` on register are rejected with `location_id` guidance); the Bataan municipality/barangay selector is used after registration via Profile (`PUT /api/profile { location_id }`).
 
 ### Step 2 — Account Verification
 
@@ -198,7 +198,7 @@ Compatibility → Availability → Verification → Proximity
 
 ## 7. Location-Based Matching
 
-Proximity sorting prioritizes donors closer to the requestor/request location/chapter. **Decided approach:** donors and requests carry latitude/longitude; approximate distance is computed (e.g., Haversine formula) and used purely as a ranking factor among eligible compatible donors (see §9.4). Chapter membership is **never** a hard filter (see §9.3).
+Proximity sorting prioritizes donors closer to the requestor/request location/chapter. **Current canonical architecture (migrations 015–016, verified 2026-09-24):** Municipality/City + optional Barangay → `bataan_locations` (12 + 237 rows, PSGC 030800000) → backend-resolved reference coordinates (`users.location_id` / `blood_requests.location_id` FKs; `latitude`/`longitude` hold backend-derived points) → proximity ranking via `Geo::distanceKm` (Haversine) in `MatchService`. Location is **not** an eligibility gate; exact user coordinates are not user-entered through the new selector; barangay selection is an administrative label until distinct reliable coordinates are seeded; request location (`blood_requests.location_id`) remains separate from user profile location (`users.location_id`). Legacy latitude/longitude records without `location_id` are still matched (distance computed where present). Chapter membership is **never** a hard filter (see §9.3). Chapter canonical centroids (chapters table) are used only by the Demand Map, never as donor/request locations.
 
 **DeMolay chapters in Bataan:**
 
@@ -376,10 +376,11 @@ BloodMatch checks **administrative prerequisites only** (age rule + account veri
 
 Priority order (unchanged): `Compatibility → Availability → Verification → Proximity`.
 
-- Proximity = distance computed from donor/request **latitude/longitude** (e.g., Haversine), used as a ranking factor among eligible compatible donors.
+- Proximity = distance computed from backend-resolved donor/request reference coordinates (e.g., Haversine via `Geo`), used as a ranking factor among eligible compatible donors. Coordinates come from canonical `bataan_locations` resolution (`location_id`), never from client-supplied raw coordinates (raw keys rejected 400).
 - Same-chapter donors may receive a ranking preference where applicable.
-- Exact coordinates are **never exposed to other users**.
+- Exact coordinates are **never exposed to other users** (match results expose `approximate_distance_km` only; selector APIs expose no coordinates).
 - **Urgency** affects outreach breadth and notification priority only (critical → broader cross-chapter outreach); it never overrides compatibility, verification, or eligibility rules.
+- Donor profile location change triggers `MatchService::refreshMatchesForDonor()`: affected OPEN matches are recalculated without generation bump (no duplicate notifications; COMPLETED/CLOSED history preserved).
 
 ### 9.5 Requests & Matches (FR-05, FR-14)
 
@@ -477,15 +478,36 @@ Officers see full requestor identity within their own chapter when necessary for
 - Each Chapter Officer is assigned to **exactly one chapter**; ordinary authority is restricted to that chapter's members, requests, and verifications.
 - System Administrators manage officer assignments and system-wide administration.
 
+### 9.14 Privacy Notices (implemented)
+
+- Registration Privacy Notice: mandatory acknowledgment (`privacy_acknowledged=true`); frontend checkbox + modal (`PrivacyNoticeModal.jsx`, `RegisterPage.jsx`) and backend gate (`AuthService::isPrivacyAcknowledged`, `POST /api/register` 400 + field error when missing/false/invalid).
+- ID-upload Privacy Notice: mandatory acknowledgment on `POST /api/profile/documents` (`DocumentController`, `privacy_acknowledged` 400 + field error when missing/false); frontend enforced in `ProfilePage.jsx`.
+- No invented retention/consent-persistence claims beyond the implemented acknowledgment gates and audit events.
+
+### 9.15 Profile Pictures (implemented, migration 015)
+
+- Nullable `users.profile_picture` (64-hex server-generated filename in `backend/storage/profile_pictures`, NULL when none).
+- Upload through Profile (`POST /api/profile/picture`): JPG/PNG/WEBP ≤5 MB, MIME + `getimagesize` validation, 10/5-min rate limit, replacement deletes previous file, `profile.picture_updated` audited.
+- Retrieval: `profile_picture_url` (`/api/profile/picture?v=...`) on login/me/profile; `GET /api/profile/picture` streams owner-only bytes (404 when none/invalid/missing); navbar `NavbarAvatar` shows avatar or fallback `User` icon.
+- Pictures do not affect verification, matching, or eligibility.
+
+### 9.16 Location Distinctions (implemented, migration 016)
+
+- User Profile Location (`users.location_id`): approximate administrative location for donor proximity ranking, distance calculation, and donor-location reconciliation. Set via `LocationSelector.jsx` → `PUT /api/profile`.
+- Blood Request Location (`blood_requests.location_id`): facility location where blood is needed, set via selector → `POST /api/requests` / `PUT /api/requests/{id}`; optional (null keeps proximity skipped for that request); location edit is material (coords re-resolved, `request.material_change`, regeneration).
+- Chapter Canonical Centroid (`chapters.latitude/longitude`): chapter-level reference for Demand Map aggregation only — never a donor/request location, never individual pins/identities.
+
 ---
 
 ## 10. Verified Implementation Status
 
 > **Specification ≠ implementation.** A feature described anywhere in this document is NOT implemented until its code has been inspected and verified in this repository. Statuses may only advance to ⚠️/✅ after inspecting committed application code.
 
-### 10.0 Repository Audit (2026-08-26)
+### 10.0 Repository Audit (2026-08-26 — Historical baseline)
 
-Full working-tree inspection found:
+> Historical record: describes the working tree on 2026-08-26. Preserved unchanged for audit trail. For the current system (migrations 001–016, 12/12 suites green, 343 assertions), see §10.3 Post-Phase-17 additions and `docs/test-log-location.md`.
+
+Full working-tree inspection found (on 2026-08-26):
 
 - Files present: `AGENTS.md`, `CONTEXT.md`, `skills-lock.json`, agent skills under `.agents/` — **nothing else**
 - Branch `main` has **zero commits** (`git log`: "current branch 'main' does not have any commits yet")
@@ -517,7 +539,7 @@ Full working-tree inspection found:
 | FR-01 User Registration — verified 2026-08-26 (`AuthService::register`, `POST /api/register`; creates `verification_status='pending'`, `account_status='active'`; evidence `docs/test-log-phase3.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-02 Login/Logout — verified 2026-08-26 (`AuthService::login/logout`, session regeneration, `auth_throttle` lockout; evidence `docs/test-log-phase3.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | Password reset flow (§8.6) — verified 2026-08-26 / email wired 2026-08-27 (hashed single-use ~30-min tokens, reuse/expiry rejected, token delivered via best-effort email; evidence `docs/test-log-phase3.md`, `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-04 Profile management — verified 2026-08-26 (`ProfileController` GET/PUT whitelist; forbidden-field rejection; coordinate validation; blood-provenance rules; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-04 Profile management — verified 2026-08-26, extended 2026-09-24 (`ProfileController` GET/PUT whitelist; forbidden-field rejection; `location_id` Bataan selector with backend-resolved coordinates, raw `latitude`/`longitude` rejected; blood-provenance rules; `matches_refreshed` on location change; evidence `docs/test-log-phase5.md`, `docs/test-log-location.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-10 Officer verification — verified 2026-08-26 (own-chapter queue, pending→verified/rejected, donor-card provenance with non-medical disclaimer, audit trail; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-11 Verification restrictions — verified 2026-08-26 (self/officer/admin-target and cross-chapter blocks all enforced+audited; capability-matrix helper live; request/donor gating cells deferred to P6/P7 endpoints; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | Cascading match engine / centralized compatibility matrix (FR-06) — verified 2026-08-26 (`BloodCompatibilityService` sole authority, 8-type red-cell matrix table+seed, hard-filter pool, centralized `MatchService`, unique persistent (request,donor) rows, generation semantics, auto-generation on create/material-change, manual re-match authz, privacy-safe serializer, explicit donor-enrollment requirement; evidence `docs/test-log-phase7.md`). Notification/response/completion states deferred to P8/P10 | ✅ IMPLEMENTED AND VERIFIED |
@@ -527,14 +549,18 @@ Full working-tree inspection found:
 | FR-12 42-hour standby + inter-donation cooldown — verified 2026-08-26 (system_settings-driven windows anchored to last_verified_donation_at; standby written only by confirmation tx; read-model matching enforcement; non-bypassable availability guards; clock-injectable tests incl. boundary + configurability; evidence `docs/test-log-phase9.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | RBAC, backend-enforced (FR-03) — verified 2026-08-26: role gates + chapter scoping + fresh account-status checks on privileged endpoints; admin user/role/chapter/deactivate endpoints; denial+action auditing (`authz.denied`, `admin.user.*`); evidence `docs/test-log-phase4.md`. Officer verification decisions remain P5 | ✅ IMPLEMENTED AND VERIFIED (Phase 4 scope) |
 | Soft-deactivation — verified 2026-08-26 (P4 admin deactivate/reactivate endpoints w/ CHECK-paired `deactivated_at`, immediate live-session denial, verification_status untouched; audited) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-16 In-App Notifications — verified 2026-08-27 (migration 013 `notifications` table, `UNIQUE(dedup_key, generation)` deduplication, event wiring for matches/verification/account/request/donation/expiry, live unread counter, type/read filters, React NotificationsPage; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-16 In-App Notifications — verified 2026-08-27, UI extended post-17 (migration 013 `notifications` table, `UNIQUE(dedup_key, generation)` deduplication, event wiring for matches/verification/account/request/donation/expiry, live unread counter `GET /api/notifications/unread-count`, type/read filters, React `NotificationsPage` retained as View-all + in-navbar `NotificationFlyout` as current primary UI; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-17 Email Alerts — verified 2026-08-27 (synchronous best-effort SMTP delivery via PHPMailer, 5/hr rate limiting with critical urgency bypass, graceful degradation when unconfigured; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-18 Audit Logging — verified 2026-08-27 (32/32 mandatory events verified; append-only DB triggers active; `AuditLogRepository`, `AuditLogAdminController`, `AuditLogOfficerController`, scoped viewer pages; evidence `docs/test-log-phase11.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-15 Regional Blood Demand Map — verified 2026-08-27 (`DemandMapController`, `GET /api/demand-map`, chapter centroid aggregation, privacy-safe, officer-scoped & admin global; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-19 Analytics & Reporting — verified 2026-08-27 (`AnalyticsRepository`, `GET /api/analytics/summary`, DB aggregations, resolution rates, donor pool availability, React AnalyticsPage; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-20 Officer & Admin Dashboards — verified 2026-08-27 (`OfficerDashboardController`, `AdminDashboardController`, operational queues, cross-chapter comparison, React dashboards; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| Profile pictures (migration 015) — verified 2026-09 (nullable `users.profile_picture` 64-hex ref in `backend/storage/profile_pictures`; `POST /api/profile/picture` upload JPG/PNG/WEBP ≤5 MB with replacement + rate limit, `GET /api/profile/picture` owner-only stream; navbar `NavbarAvatar` with fallback icon; `profile_picture_url` on login/me/profile; `profile.picture_updated` audited; evidence `tests/profile_picture.ps1` P01–P13) | ✅ IMPLEMENTED AND VERIFIED |
+| Bataan location reference (migration 016 + seed 004) — verified 2026-09-24 (`bataan_locations` 12 municipalities + 237 barangays PSGC 030800000; `users.location_id` / `blood_requests.location_id` FKs; `LocationService` backend resolution; `LocationSelector.jsx` cascade; `GET /api/locations/municipalities`, `GET /api/locations/barangays`; raw coordinates rejected; selector APIs expose no coordinates; evidence `docs/test-log-location.md` L01–L16, `tests/location.ps1` 20/20) | ✅ IMPLEMENTED AND VERIFIED |
+| Donor-location refresh — verified 2026-09-24 (`MatchService::refreshMatchesForDonor()` on profile location change; re-runs OPEN live matches without generation bump; dedup holds, no duplicate notifications; COMPLETED/CLOSED untouched; `matches_refreshed` returned; evidence `docs/test-log-location.md` L17–L20) | ✅ IMPLEMENTED AND VERIFIED |
+| Privacy notices — verified (registration Privacy Notice mandatory `privacy_acknowledged` frontend + backend `AuthService::isPrivacyAcknowledged`, `POST /api/register` 400 + field error when missing/false; ID-upload Privacy Notice mandatory on `POST /api/profile/documents` via `DocumentController`; `PrivacyNoticeModal.jsx`, `RegisterPage.jsx`, `ProfilePage.jsx`; evidence `tests/phase3.ps1` T05b–T05d, `tests/phase5.ps1` B1b–B1c) | ✅ IMPLEMENTED AND VERIFIED |
 
-> When development begins, update these rows only after verifying actual files/endpoints/tables, and record the supporting evidence alongside each status.
+> Maintain these rows only after verifying actual files/endpoints/tables, and record the supporting evidence alongside each status. Historical Phase-17 baseline (11/11, 316/316 on 2026-08-27) is preserved in `docs/test-log-phase17.md`; current baseline (12/12, 343 assertions on 2026-09-24) is in `docs/test-log-location.md` and `tests/run_all.ps1`.
 
 ---
 

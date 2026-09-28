@@ -1,5 +1,7 @@
 # Phase 9 Verification Log — 42-Hour Standby & Inter-Donation Cooldown
 
+> Historical record (2026-08-26). Preserved as-run. Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 9 still 16/16).
+
 Executed: 2026-08-26 · Suite: `tests/phase9.ps1` (16 assertions) · **Result: 16 passed, 0 failed**
 Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35**, phase7 **28/28**, phase8 **30/30**
 Full sweep on fresh log: zero unexpected PHP warnings/errors; smoke PASS; React build clean

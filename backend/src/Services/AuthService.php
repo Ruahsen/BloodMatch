@@ -58,8 +58,8 @@ final class AuthService
         $chapterId = Request::int('chapter_id', $input);
         $dob = Request::str('date_of_birth', $input);
         $bloodType = Request::str('blood_type', $input);
-        $latitude = isset($input['latitude']) && is_numeric($input['latitude']) ? (float) $input['latitude'] : null;
-        $longitude = isset($input['longitude']) && is_numeric($input['longitude']) ? (float) $input['longitude'] : null;
+        $latitude = null;
+        $longitude = null;
 
         $allowedBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -95,8 +95,8 @@ final class AuthService
             }
         }
 
-        if (($latitude === null) !== ($longitude === null)) {
-            $v->addError('location', 'Latitude and longitude must be provided together.');
+        if (array_key_exists('latitude', $input) || array_key_exists('longitude', $input)) {
+            $v->addError('location_id', 'Set your location after registration using the Bataan municipality/barangay selector.');
         }
 
         if ($chapterId !== null && !$this->users->chapterExists($chapterId)) {
@@ -272,6 +272,7 @@ final class AuthService
             'role' => (string) $user['role'],
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
+            'profile_picture_url' => ProfilePictureStorageService::urlFor($user['profile_picture'] ?? null),
         ];
     }
 }

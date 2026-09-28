@@ -1,5 +1,7 @@
 # Phase 3 Verification Log — Authentication & Registration
 
+> Historical record (2026-08-26, 23 assertions). Preserved as-run. Superseded for current totals by `docs/test-log-location.md` (2026-09-24: Phase 3 now 26 assertions incl. mandatory `privacy_acknowledged` gates T05b–T05d; master 12/12, 343). Do not read 23/23 as the current baseline.
+
 Executed: 2026-08-26 · Suite: `tests/phase3.ps1` (23 assertions) · **Result: 23 passed, 0 failed**
 Environment: PHP 8.2.12 dev server (127.0.0.1:8000) → MariaDB 10.4 @ 127.0.0.1:**3307**, DB `bloodmatch_dev`
 

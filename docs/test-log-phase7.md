@@ -1,5 +1,7 @@
 # Phase 7 Verification Log — Compatibility & Matching Engine
 
+> Historical record (2026-08-26). Preserved as-run. Current implementation uses `BloodCompatibilityService.php` + `MatchService.php` + `Geo.php` (no `MatchingEngine.php`/`DistanceCalculator.php` aliases); proximity via backend-resolved `location_id` (see `docs/test-log-location.md` L01–L20). Current baseline 12/12, 343 (Phase 7 still 28/28).
+
 Executed: 2026-08-26 · Suite: `tests/phase7.ps1` (28 assertions) · **Result: 28 passed, 0 failed**
 Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35** — all unchanged
 Full sweep on fresh log: zero PHP warnings/errors; React build clean; smoke PASS

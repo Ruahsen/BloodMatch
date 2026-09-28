@@ -8,6 +8,10 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('bm-theme', theme)
+    const icon = document.querySelector('link[rel="icon"]')
+    if (icon) {
+      icon.setAttribute('href', theme === 'dark' ? '/favicon-dark.svg' : '/favicon.svg')
+    }
   }, [theme])
 
   const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))

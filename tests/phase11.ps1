@@ -68,6 +68,7 @@ function Login($email) {
 
 $suffix = "$(Get-Random)"
 $future = (Get-Date).ToUniversalTime().AddDays(2).ToString('yyyy-MM-dd HH:mm:ss')
+$balangaLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 
 Write-Host "== Phase 11 Audit Logging Coverage Completion Tests =="
 
@@ -174,8 +175,7 @@ $rReq1 = Invoke-Json $mem1Auth.s 'Post' '/api/requests' @{
     facility_name = 'Orani Medical Center'
     urgency = 'routine'
     needed_datetime = $future
-    latitude = 14.80
-    longitude = 120.53
+    location_id = $oraniLocId
 } $mem1Auth.csrf
 $req1Id = $rReq1.body.data.request.id
 
@@ -186,8 +186,7 @@ $rReq2 = Invoke-Json $mem2Auth.s 'Post' '/api/requests' @{
     facility_name = 'Mariveles Hospital'
     urgency = 'routine'
     needed_datetime = $future
-    latitude = 14.43
-    longitude = 120.48
+    location_id = $marivelesLocId
 } $mem2Auth.csrf
 $req2Id = $rReq2.body.data.request.id
 

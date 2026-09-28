@@ -1,5 +1,7 @@
 # Phase 10 Verification Log — In-App Notifications & Best-Effort Email
 
+> Historical record (2026-08-27, 43 assertions; regression totals 238 as-run). Preserved as-run (phase3 23/23 and phase5 40/40 regression snapshots are historical; current Phase 3: 26, Phase 5: 44). Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 10 still 43/43). Current primary notification UI is in-navbar flyout (`NotificationFlyout.jsx`), page retained as View-all; `GET /api/notifications/unread-count` live counter.
+
 Executed: 2026-08-27 · Suite: `tests/phase10.ps1` (43 assertions) · **Result: 43 passed, 0 failed**
 Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35**, phase7 **28/28**, phase8 **30/30**, phase9 **16/16** — all suites green (238 total assertions)
 Runtime: PHP 8.2.12 dev server → MariaDB @ 3307, DB `bloodmatch_dev`; zero PHP warnings/errors; React production build clean

@@ -97,26 +97,17 @@ final class ProfileController
 
         $hasLat = array_key_exists('latitude', $body);
         $hasLng = array_key_exists('longitude', $body);
-        if ($hasLat !== $hasLng) {
-            $v->addError('location', 'Latitude and longitude must be updated together.');
-        } elseif ($hasLat && $hasLng) {
-            $latRaw = $body['latitude'];
-            $lngRaw = $body['longitude'];
-            if ($latRaw === null || $lngRaw === null || $latRaw === '' || $lngRaw === '') {
-                $fields['latitude'] = null;
-                $fields['longitude'] = null;
-            } else {
-                if (!is_numeric($latRaw) || (float) $latRaw < -90 || (float) $latRaw > 90) {
-                    $v->addError('latitude', 'Latitude must be a number between -90 and 90.');
-                }
-                if (!is_numeric($lngRaw) || (float) $lngRaw < -180 || (float) $lngRaw > 180) {
-                    $v->addError('longitude', 'Longitude must be a number between -180 and 180.');
-                }
-                if (!$v->fails()) {
-                    $fields['latitude'] = (float) $latRaw;
-                    $fields['longitude'] = (float) $lngRaw;
-                }
-            }
+        if ($hasLat || $hasLng) {
+            throw new ValidationException([
+                'location_id' => ['Set your location using the Bataan municipality/barangay selector instead of coordinates.'],
+            ]);
+        }
+
+        if (array_key_exists('location_id', $body)) {
+            $location = \BloodMatch\Services\LocationService::resolveLocationId($body['location_id']);
+            $fields['location_id'] = $location['location_id'];
+            $fields['latitude'] = $location['latitude'];
+            $fields['longitude'] = $location['longitude'];
         }
 
         if ($v->fails()) {
@@ -124,14 +115,26 @@ final class ProfileController
         }
 
         if ($fields !== []) {
+            $locationChanged = array_key_exists('location_id', $fields)
+                && ($actor['location_id'] === null || (int) $actor['location_id'] !== (int) $fields['location_id']);
             (new UserRepository())->updateProfile((int) $actor['id'], $fields);
             AuditLogger::log((int) $actor['id'], 'profile.updated', 'user', (string) $actor['id'], [
                 'fields' => array_keys($fields),
             ]);
+
+            $matchesRefreshed = [];
+            if ($locationChanged) {
+                $matchesRefreshed = (new \BloodMatch\Services\MatchService())
+                    ->refreshMatchesForDonor((int) $actor['id'], (int) $actor['id']);
+            }
         }
 
         $fresh = (new UserRepository())->findById((int) $actor['id']);
-        Response::success(['profile' => $this->compose($fresh)]);
+        $payload = ['profile' => $this->compose($fresh)];
+        if (!empty($matchesRefreshed)) {
+            $payload['matches_refreshed'] = $matchesRefreshed;
+        }
+        Response::success($payload);
     }
 
     public function resubmit(): void
@@ -257,6 +260,9 @@ final class ProfileController
                 : ($verifiedBlood ? CapabilityMatrix::BLOOD_TYPE_NOTICE_ADMIN_VERIFIED : CapabilityMatrix::BLOOD_TYPE_NOTICE_UNVERIFIED),
             'latitude' => $user['latitude'] !== null ? (float) $user['latitude'] : null,
             'longitude' => $user['longitude'] !== null ? (float) $user['longitude'] : null,
+            'location' => $user['location_id'] !== null
+                ? \BloodMatch\Services\LocationService::findById((int) $user['location_id'])
+                : null,
             'donor_enrolled' => $user['donor_enrolled_at'] !== null,
             'availability' => $user['donor_availability'],
             'availability_window' => \BloodMatch\Services\DonorEligibilityService::evaluateWindows(
@@ -264,6 +270,7 @@ final class ProfileController
             ),
             'capabilities' => CapabilityMatrix::evaluate($user),
             'age_eligibility' => $eligibility,
+            'profile_picture_url' => \BloodMatch\Services\ProfilePictureStorageService::urlFor($user['profile_picture'] ?? null),
             'documents' => array_map(static fn (array $d): array => [
                 'id' => (int) $d['id'],
                 'doc_type' => (string) $d['doc_type'],

@@ -68,6 +68,7 @@ function Login($email) {
 
 $suffix = "$(Get-Random)"
 $future = (Get-Date).ToUniversalTime().AddDays(2).ToString('yyyy-MM-dd HH:mm:ss')
+$balangaLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 $todayDate = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 
 Write-Host "== Phase 12 Analytics, Demand Map & Dashboards Tests =="
@@ -167,8 +168,7 @@ $rReq1 = Invoke-Json $mem1Auth.s 'Post' '/api/requests' @{
     facility_name = 'Orani District Hospital'
     urgency = 'routine'
     needed_datetime = $future
-    latitude = 14.80
-    longitude = 120.53
+    location_id = $oraniLocId
 } $mem1Auth.csrf
 $req1Id = $rReq1.body.data.request.id
 
@@ -179,8 +179,7 @@ $rReq2 = Invoke-Json $mem1Auth.s 'Post' '/api/requests' @{
     facility_name = 'Orani Clinic'
     urgency = 'routine'
     needed_datetime = $future
-    latitude = 14.80
-    longitude = 120.53
+    location_id = $oraniLocId
 } $mem1Auth.csrf
 $req2Id = $rReq2.body.data.request.id
 DbQuery "UPDATE blood_requests SET status = 'FULFILLED' WHERE id=$req2Id;"
@@ -192,8 +191,7 @@ $rReq3 = Invoke-Json $mem1Auth.s 'Post' '/api/requests' @{
     facility_name = 'Orani Center'
     urgency = 'urgent'
     needed_datetime = $future
-    latitude = 14.80
-    longitude = 120.53
+    location_id = $oraniLocId
 } $mem1Auth.csrf
 $req3Id = $rReq3.body.data.request.id
 Invoke-Json $mem1Auth.s 'Post' "/api/requests/$req3Id/cancel" $null $mem1Auth.csrf | Out-Null
@@ -205,8 +203,7 @@ $rReq4 = Invoke-Json $mem1Auth.s 'Post' '/api/requests' @{
     facility_name = 'Orani Health'
     urgency = 'routine'
     needed_datetime = $future
-    latitude = 14.80
-    longitude = 120.53
+    location_id = $oraniLocId
 } $mem1Auth.csrf
 $req4Id = $rReq4.body.data.request.id
 DbQuery "UPDATE blood_requests SET status = 'EXPIRED', expired_at = UTC_TIMESTAMP() WHERE id=$req4Id;"
@@ -218,8 +215,7 @@ $rReq5 = Invoke-Json $mem2Auth.s 'Post' '/api/requests' @{
     facility_name = 'Mariveles Emergency Hospital'
     urgency = 'critical'
     needed_datetime = $future
-    latitude = 14.43
-    longitude = 120.48
+    location_id = $marivelesLocId
 } $mem2Auth.csrf
 $req5Id = $rReq5.body.data.request.id
 

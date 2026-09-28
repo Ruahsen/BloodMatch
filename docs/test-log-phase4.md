@@ -1,5 +1,7 @@
 # Phase 4 Verification Log — RBAC & Chapter Scoping
 
+> Historical record (2026-08-26). Preserved as-run. Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 4 still 23/23).
+
 Executed: 2026-08-26 · Suite: `tests/phase4.ps1` (23 assertions) · **Result: 23 passed, 0 failed**
 Regression: `tests/phase3.ps1` re-run after changes → **23 passed, 0 failed** (unchanged)
 Environment: PHP 8.2.12 dev server → MariaDB 10.4 @ port 3307, DB `bloodmatch_dev`; zero PHP warnings/notices

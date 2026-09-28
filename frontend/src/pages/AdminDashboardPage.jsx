@@ -49,7 +49,7 @@ export default function AdminDashboardPage() {
   const recentLogs = data?.recent_system_activity || []
 
   return (
-    <div className="container" style={{ maxWidth: '1040px' }}>
+    <div className="container">
       <header className="app-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>

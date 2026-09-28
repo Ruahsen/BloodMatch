@@ -11,6 +11,7 @@ $suites = @(
     'phase10.ps1',
     'phase11.ps1',
     'phase12.ps1',
+    'location.ps1',
     'phase16_security.ps1'
 )
 

@@ -1,5 +1,7 @@
 # Phase 5 Verification Log — Profiles, Documents & Officer Verification
 
+> Historical record (2026-08-26, 40 assertions). Preserved as-run. Superseded for current totals by `docs/test-log-location.md` (2026-09-24: Phase 5 now 44 assertions incl. mandatory ID `privacy_acknowledged` B1b–B1c + `location_id` selector L05–L08; master 12/12, 343). Profile location is now `location_id` (backend-resolved), not raw coordinates.
+
 Executed: 2026-08-26 · Suite: `tests/phase5.ps1` (40 assertions) · **Result: 40 passed, 0 failed**
 Regressions: `tests/phase3.ps1` → **23/23**, `tests/phase4.ps1` → **23/23** (both unchanged)
 Runtime: PHP 8.2.12 dev server (`upload_max_filesize=10M` override) → MariaDB @ 3307, DB `bloodmatch_dev`

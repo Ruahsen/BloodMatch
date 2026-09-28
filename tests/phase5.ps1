@@ -125,14 +125,18 @@ $r = Invoke-Json $mP.s 'Put' '/api/profile' @{ verification_status = 'verified' 
 if ($r.status -eq 400) { Ok 'A4 verification_status modification rejected' } else { Bad 'A4' "got $($r.status)" }
 
 $r = Invoke-Json $mP.s 'Put' '/api/profile' @{ latitude = 14.5 } $mP.csrf
-if ($r.status -eq 400 -and $r.body.error.details.location) { Ok 'A5 single coordinate rejected' } else { Bad 'A5' "got $($r.status)" }
+if ($r.status -eq 400 -and $r.body.error.details.location_id) { Ok 'A5 raw coordinates rejected (use location selector)' } else { Bad 'A5' "got $($r.status)" }
 
 $r = Invoke-Json $mP.s 'Put' '/api/profile' @{ latitude = 200; longitude = 120 } $mP.csrf
-if ($r.status -eq 400 -and $r.body.error.details.latitude) { Ok 'A6 out-of-range latitude rejected' } else { Bad 'A6' "got $($r.status)" }
+if ($r.status -eq 400 -and $r.body.error.details.location_id) { Ok 'A6 raw coordinate pair rejected' } else { Bad 'A6' "got $($r.status)" }
 
-$r = Invoke-Json $mP.s 'Put' '/api/profile' @{ latitude = 14.65; longitude = 120.53 } $mP.csrf
-$dbGeo = DbQuery "SELECT CONCAT(latitude,'|',longitude) FROM users WHERE id=$memPId;"
-if ($r.status -eq 200 -and $dbGeo -like '14.65*|120.53*') { Ok 'A7 coordinate pair saved' } else { Bad 'A7' "db=$dbGeo" }
+$oraniLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030809000' LIMIT 1;")
+$r = Invoke-Json $mP.s 'Put' '/api/profile' @{ location_id = $oraniLocId } $mP.csrf
+$dbGeo = DbQuery "SELECT CONCAT(location_id,'|',latitude,'|',longitude) FROM users WHERE id=$memPId;"
+if ($r.status -eq 200 -and $dbGeo -like "$oraniLocId|14.8*|120.533333*") { Ok 'A7 canonical location saved with resolved coordinates' } else { Bad 'A7' "db=$dbGeo" }
+
+$r = Invoke-Json $mP.s 'Put' '/api/profile' @{ location_id = 999999 } $mP.csrf
+if ($r.status -eq 400 -and $r.body.error.details.location_id) { Ok 'A7b invalid location_id rejected' } else { Bad 'A7b' "got $($r.status)" }
 
 # ===== B. DOCUMENTS =====
 $r = Upload $mP.s '/api/profile/documents' 'file' 'id-card.pdf' $pdfBytes 'application/pdf' $mP.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '1' }

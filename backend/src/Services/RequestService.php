@@ -72,33 +72,28 @@ final class RequestService
             }
         }
 
-        $latGiven = array_key_exists('latitude', $body);
-        $lngGiven = array_key_exists('longitude', $body);
-        if (!$partial && !$latGiven && !$lngGiven) {
-            $fields['latitude'] = null;
-            $fields['longitude'] = null;
+        if (array_key_exists('latitude', $body) || array_key_exists('longitude', $body)) {
+            throw new Exceptions\ValidationException([
+                'location_id' => ['Set the facility location using the Bataan municipality/barangay selector instead of coordinates.'],
+            ]);
         }
-        if ($latGiven !== $lngGiven && !($latGiven && array_key_exists('longitude', $body)) && !($lngGiven && array_key_exists('latitude', $body))) {
-            $v->addError('location', 'Latitude and longitude must be provided together.');
-        } else {
-            $latRaw = $body['latitude'] ?? null;
-            $lngRaw = $body['longitude'] ?? null;
-            $bothNull = ($latRaw === null || $latRaw === '') && ($lngRaw === null || $lngRaw === '');
-            if ($bothNull) {
+
+        if ($has('location_id')) {
+            $locRaw = $body['location_id'] ?? null;
+            if ($locRaw === null || $locRaw === '') {
+                $fields['location_id'] = null;
                 $fields['latitude'] = null;
                 $fields['longitude'] = null;
             } else {
-                if (!is_numeric($latRaw) || (float) $latRaw < -90 || (float) $latRaw > 90) {
-                    $v->addError('latitude', 'Latitude must be a number between -90 and 90.');
-                }
-                if (!is_numeric($lngRaw) || (float) $lngRaw < -180 || (float) $lngRaw > 180) {
-                    $v->addError('longitude', 'Longitude must be a number between -180 and 180.');
-                }
-                if (!$v->fails()) {
-                    $fields['latitude'] = (float) $latRaw;
-                    $fields['longitude'] = (float) $lngRaw;
-                }
+                $location = LocationService::resolveLocationId($locRaw);
+                $fields['location_id'] = $location['location_id'];
+                $fields['latitude'] = $location['latitude'];
+                $fields['longitude'] = $location['longitude'];
             }
+        } elseif (!$partial) {
+            $fields['location_id'] = null;
+            $fields['latitude'] = null;
+            $fields['longitude'] = null;
         }
 
         if ($v->fails()) {
@@ -112,7 +107,7 @@ final class RequestService
     {
         $materialGroups = [
             'required_blood_type' => ['required_blood_type'],
-            'location' => ['facility_name', 'latitude', 'longitude'],
+            'location' => ['facility_name', 'location_id', 'latitude', 'longitude'],
             'urgency' => ['urgency'],
             'needed_datetime' => ['needed_datetime'],
             'quantity_units' => ['quantity_units'],
@@ -169,6 +164,24 @@ final class RequestService
         return $actor['chapter_id'] === null ? null : (int) $actor['chapter_id'];
     }
 
+    private static function presentLocation(array $row): ?array
+    {
+        if (!isset($row['location_id']) || $row['location_id'] === null) {
+            return null;
+        }
+        $isBarangay = isset($row['loc_level']) && (string) $row['loc_level'] === 'barangay';
+        return [
+            'location_id' => (int) $row['location_id'],
+            'psgc_code' => isset($row['loc_psgc']) && $row['loc_psgc'] !== null ? (string) $row['loc_psgc'] : null,
+            'name' => isset($row['loc_name']) && $row['loc_name'] !== null ? (string) $row['loc_name'] : null,
+            'level' => isset($row['loc_level']) && $row['loc_level'] !== null ? (string) $row['loc_level'] : null,
+            'municipality_code' => isset($row['loc_municipality_code']) ? (string) $row['loc_municipality_code'] : null,
+            'municipality_name' => isset($row['loc_municipality_name']) ? (string) $row['loc_municipality_name'] : null,
+            'barangay_code' => $isBarangay && isset($row['loc_psgc']) ? (string) $row['loc_psgc'] : null,
+            'barangay_name' => $isBarangay && isset($row['loc_name']) ? (string) $row['loc_name'] : null,
+        ];
+    }
+
     public static function publicView(array $row, ?array $requester): array
     {
         return [
@@ -180,6 +193,7 @@ final class RequestService
             'required_blood_type' => (string) $row['required_blood_type'],
             'quantity_units' => (int) $row['quantity_units'],
             'facility_name' => (string) $row['facility_name'],
+            'location' => self::presentLocation($row),
             'latitude' => $row['latitude'] !== null ? (float) $row['latitude'] : null,
             'longitude' => $row['longitude'] !== null ? (float) $row['longitude'] : null,
             'urgency' => (string) $row['urgency'],

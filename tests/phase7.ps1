@@ -67,6 +67,7 @@ function Login($email) {
 
 $suffix = "$(Get-Random)"
 $future = (Get-Date).ToUniversalTime().AddDays(2).ToString('yyyy-MM-dd HH:mm:ss')
+$balangaLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 
 Write-Host "== Phase 7 compatibility & matching engine audit =="
 
@@ -123,7 +124,7 @@ $off = Login $offEmail
 $reqSess = Login $reqEmail
 $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     required_blood_type='A+'; facility_name='Balanga General'; needed_datetime=$future;
-    latitude=14.680000; longitude=120.540000
+    location_id=$balangaLocId
 } $reqSess.csrf
 if ($r.status -eq 201 -and $r.body.data.matching.generation -eq 1) { Ok 'T1 creation auto-generates generation 1' } else { Bad 'T1' "status=$($r.status) match=$($r.body.data.matching | ConvertTo-Json -Compress)" }
 $reqRowId = $r.body.data.request.id
@@ -218,7 +219,7 @@ $abReqId = New-FixtureUser $abReqEmail 'AB Requestor' 'member' 1 'verified' 'AB+
 $abs = Login $abReqEmail
 $r = Invoke-Json $abs.s 'Post' '/api/requests' @{
     required_blood_type='AB+'; facility_name='Balanga General'; needed_datetime=$future;
-    latitude=14.680000; longitude=120.540000
+    location_id=$balangaLocId
 } $abs.csrf
 if ($r.status -eq 201) { Ok 'T19 AB+ request created with auto-generation' } else { Bad 'T19' "got $($r.status)" }
 

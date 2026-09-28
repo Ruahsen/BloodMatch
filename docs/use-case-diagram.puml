@@ -22,6 +22,8 @@ package "BloodMatch — DeMolay Bataan Blood Donor Matching Platform" {
     usecase "Log Out" as UC_Logout
     usecase "Reset Password" as UC_ResetPassword
     usecase "Manage Profile" as UC_ManageProfile
+    usecase "Manage Profile Picture" as UC_ProfilePicture
+    usecase "Select Bataan Location" as UC_SelectLocation
     usecase "Upload Verification Documents" as UC_UploadDocs
     usecase "Resubmit Verification" as UC_ResubmitVerification
   }
@@ -104,6 +106,8 @@ Member --> UC_Login
 Member --> UC_Logout
 Member --> UC_ResetPassword
 Member --> UC_ManageProfile
+Member --> UC_ProfilePicture
+Member --> UC_SelectLocation
 Member --> UC_UploadDocs
 Member --> UC_ResubmitVerification
 Member --> UC_EnrollDonor
@@ -125,6 +129,8 @@ Officer --> UC_Login
 Officer --> UC_Logout
 Officer --> UC_ResetPassword
 Officer --> UC_ManageProfile
+Officer --> UC_ProfilePicture
+Officer --> UC_SelectLocation
 Officer --> UC_ReviewVerification
 Officer --> UC_ApproveVerification
 Officer --> UC_RejectVerification
@@ -146,6 +152,8 @@ Admin --> UC_Login
 Admin --> UC_Logout
 Admin --> UC_ResetPassword
 Admin --> UC_ManageProfile
+Admin --> UC_ProfilePicture
+Admin --> UC_SelectLocation
 Admin --> UC_ManageUsers
 Admin --> UC_AssignRoles
 Admin --> UC_AssignChapter

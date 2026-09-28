@@ -56,7 +56,7 @@ export default function AnalyticsPage() {
   const dailyTrend = data?.daily_request_trend || []
 
   return (
-    <div className="container" style={{ maxWidth: '1040px' }}>
+    <div className="container">
       <header className="app-header">
         <div>
           <h1>Analytics & Operational Reporting</h1>

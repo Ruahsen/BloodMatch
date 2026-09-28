@@ -2,16 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
-
-function deepLink(n) {
-  if (n.related_type === 'blood_request' && n.related_id) {
-    return `/requests/${n.related_id}/matches`
-  }
-  if (n.type === 'verification.decision') return '/profile'
-  if (n.type === 'account.status_changed') return '/profile'
-  if (n.type === 'donation.confirmed' || n.type === 'donation.rejected') return '/profile'
-  return null
-}
+import { formatNotificationTime, notificationDeepLink as deepLink } from '../services/notifications'
 
 export default function NotificationsPage() {
   const [data, setData] = useState(null)
@@ -156,7 +147,7 @@ export default function NotificationsPage() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', fontSize: '0.75rem', marginTop: 'var(--space-2)', borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-2)' }}>
                   <span className="muted">
-                    {new Date(n.created_at.replace(' ', 'T') + 'Z').toLocaleString()}
+                    {formatNotificationTime(n.created_at)}
                   </span>
 
                   <div className="button-group">

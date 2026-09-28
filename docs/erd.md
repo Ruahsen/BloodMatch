@@ -1,6 +1,6 @@
 # BloodMatch — Entity Relationship Diagram (ERD) — Implemented Schema
 
-> **Source of truth:** `database/migrations/001–014` applied to `bloodmatch_dev` (MariaDB 10.4 / XAMPP, port 3307). Verified **2026-08-27** via `SHOW CREATE TABLE`, `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` and `database/run_migrations.php` (14 applied, re-run 0). Previous `docs/erd.md` documented 001–013 with ASCII sketch; this revision corrects to the **current** 001–014 schema with accurate Mermaid, keys and constraints.
+> **Source of truth:** `database/migrations/001–016` applied to `bloodmatch_dev` (MariaDB 10.4 / XAMPP, port 3307). Verified 2026-08-27 for 001–014 and 2026-09-24 for 015–016 via `SHOW CREATE TABLE`, `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` and `database/run_migrations.php` (16 applied, re-run 0). Historical Phase-17 revision documented 001–014 only (see `docs/test-log-phase17.md`); this file supersedes it for the current 001–016 schema.
 
 ---
 
@@ -15,6 +15,8 @@ The Entity Relationship Diagram of BloodMatch shows the main entities and how th
 ```mermaid
 erDiagram
     chapters ||--o{ users : "has"
+    bataan_locations ||--o{ users : "locates"
+    bataan_locations ||--o{ blood_requests : "locates"
     users ||--o{ password_resets : "resets"
     users ||--o{ audit_log : "actor_of"
     users ||--o{ member_documents : "owns"
@@ -56,8 +58,10 @@ erDiagram
         DATETIME donor_enrolled_at
         ENUM donor_availability
         DATETIME last_verified_donation_at
+        INT location_id FK
         DECIMAL latitude
         DECIMAL longitude
+        VARCHAR profile_picture
         ENUM account_status
         DATETIME deactivated_at
         TIMESTAMP created_at
@@ -117,6 +121,7 @@ erDiagram
         ENUM required_blood_type
         TINYINT quantity_units
         VARCHAR facility_name
+        INT location_id FK
         DECIMAL latitude
         DECIMAL longitude
         ENUM urgency
@@ -126,6 +131,20 @@ erDiagram
         TIMESTAMP created_at
         TIMESTAMP updated_at
         DATETIME expired_at
+    }
+
+    bataan_locations {
+        INT id PK
+        VARCHAR psgc_code UK
+        VARCHAR name
+        ENUM level
+        VARCHAR municipality_code
+        VARCHAR municipality_name
+        DECIMAL latitude
+        DECIMAL longitude
+        TINYINT is_active
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     compatibility_matrix {
@@ -184,7 +203,7 @@ erDiagram
     }
 ```
 
-> **Mermaid rendering:** paste the block into https://mermaid.live or run `npx @mermaid-js/mermaid-cli -i docs/erd.md -o docs/erd.svg` to regenerate `docs/erd.svg` / `docs/erd.png`. The diagram is layout-grouped: *Identity/Access* (chapters/users/password_resets/auth_throttle), *Verification* (member_documents/verification_decisions), *Request/Matching* (blood_requests/compatibility_matrix/matches), *Donation* (donation_reports/system_settings), *Notifications/Auditing* (notifications/audit_log). Grouping is visual only.
+> **Mermaid rendering:** paste the block into https://mermaid.live or run `npx @mermaid-js/mermaid-cli -i docs/erd.md -o docs/erd.svg` to regenerate `docs/erd.svg`. Regenerated 2026-09-28 (mermaid-cli 12.0.0); verified `docs/erd.svg` contains `bataan_locations`, `profile_picture`, `location_id`. The diagram is layout-grouped: *Identity/Access* (chapters/users/password_resets/auth_throttle/bataan_locations), *Verification* (member_documents/verification_decisions), *Request/Matching* (blood_requests/compatibility_matrix/matches), *Donation* (donation_reports/system_settings), *Notifications/Auditing* (notifications/audit_log). Grouping is visual only.
 
 ---
 
@@ -194,7 +213,7 @@ erDiagram
 Fixed reference data for the 3 Bataan chapters (Mt. Samat — Orani, Mt. Tarak — Mariveles, Meridian Heights — Balanga City). Seeded once via `001_chapters.sql` with `ON DUPLICATE KEY UPDATE`; not admin-manageable.
 
 **users**
-Stores member, Chapter Officer and System Administrator accounts, including email (login identity), password hash, role, chapter assignment, verification and account status, blood type and provenance, donor enrollment and availability, last verified donation time, coordinates and timestamps.
+Stores member, Chapter Officer and System Administrator accounts, including email (login identity), password hash, role, chapter assignment, verification and account status, blood type and provenance, donor enrollment and availability, last verified donation time, canonical location (`location_id` FK → `bataan_locations`, backend-resolved `latitude`/`longitude`), profile picture reference (`profile_picture` 64-hex, NULL when none, migration 015), and timestamps.
 
 **password_resets**
 Stores hashed single-use reset tokens (`token_hash` CHAR(64) SHA-256 hex, `expires_at` ~30 min, `used_at` for single-use) linked to a user.
@@ -212,7 +231,10 @@ Stores uploaded verification evidence (`national_id`, `donor_card`, `parental_co
 History of verification outcomes for a member (`target_user_id`) decided by an officer (`officer_id` nullable, SET NULL) with decision `verified`/`rejected`/`re_review_requested`/`resubmitted` and reason.
 
 **blood_requests**
-Stores blood requests with required blood type, quantity, facility name, urgency, needed datetime, status (`OPEN`/`FULFILLED`/`CANCELLED`/`EXPIRED`), review provenance (`pending_review` for pending creators), immutable `request_chapter_id` snapshot of the requestor's chapter, and optional coordinates.
+Stores blood requests with required blood type, quantity, facility name, urgency, needed datetime, status (`OPEN`/`FULFILLED`/`CANCELLED`/`EXPIRED`), review provenance (`pending_review` for pending creators), immutable `request_chapter_id` snapshot of the requestor's chapter, canonical facility location (`location_id` FK → `bataan_locations`, backend-resolved coordinates; NULL = location optional), and timestamps.
+
+**bataan_locations** (migration 016 + seed 004)
+Canonical Bataan location reference for user-friendly proximity ranking: 12 PSGC cities/municipalities + 237 barangays (PSGC province 030800000) = 249 rows. Columns: `id INT UNSIGNED AI PK`, `psgc_code VARCHAR(9) UNIQUE`, `name`, `level ENUM(municipality,barangay)`, `municipality_code/name` (barangay parent), `latitude/longitude DECIMAL(9,6)` reference point (municipality poblacion per Wikidata P625; barangays inherit their municipality's point), `is_active`. `users.location_id` and `blood_requests.location_id` FK → `bataan_locations.id` (`ON UPDATE CASCADE`, `ON DELETE SET NULL`); `latitude/longitude` on those tables now hold backend-resolved reference coordinates consumed by the unchanged matching engine (`Geo::distanceKm`).
 
 **compatibility_matrix**
 Standalone lookup of red-cell ABO/Rh compatibility: `recipient_type` PK (8 types) with CSV `allowed_donor_types`. No foreign keys; sole consumer is `BloodCompatibilityService`.
@@ -242,6 +264,7 @@ Runner bookkeeping (`name` PK, `applied_at`) managed by `database/run_migrations
 - **One user has many member documents;** document stored name is globally unique — `member_documents.user_id → users.id` `CASCADE`, `UNIQUE(stored_name)`.
 - **One user (as member) has many verification decisions as target;** one user (as officer) has many decisions as reviewer (`SET NULL` on officer delete) — `verification_decisions.target_user_id`/`officer_id → users.id`.
 - **One user has many blood requests as requester;** one chapter has many blood requests as immutable snapshot — `blood_requests.requester_id → users.id` `CASCADE`, `request_chapter_id → chapters.id`.
+- **One canonical location has many users and many blood requests;** `users.location_id → bataan_locations.id` and `blood_requests.location_id → bataan_locations.id` (`ON UPDATE CASCADE`, `ON DELETE SET NULL`; NULL = legacy/manual record).
 - **One blood request has many matches;** one user (as donor) has many matches — `matches.request_id → blood_requests.id`, `matches.donor_id → users.id`, `UNIQUE(request_id, donor_id)`.
 - **One match has many donation reports;** one user (as donor) has many reports; one user (as confirmer) has many reports (`SET NULL`) — `donation_reports.match_id → matches.id`, `donor_id → users.id`, `confirmed_by → users.id`.
 - **One user has many notifications;** related target is polymorphic — `notifications.user_id → users.id` `CASCADE`, `UNIQUE(dedup_key, generation)`.
@@ -252,9 +275,9 @@ Runner bookkeeping (`name` PK, `applied_at`) managed by `database/run_migrations
 
 ## Important Constraints & Notes
 
-**Primary / Unique Keys:** All tables use `id` `BIGINT UNSIGNED AI` except `chapters.id` `TINYINT UNSIGNED AI`, `compatibility_matrix.recipient_type` `VARCHAR(3)`, `system_settings.setting_key` `VARCHAR(80)`, `auth_throttle.identifier` `VARCHAR(210)`, `schema_migrations.name`. Unique: `users.email`, `chapters.code`, `password_resets.token_hash`, `member_documents.stored_name`, `matches(request_id, donor_id)`, `notifications(dedup_key, generation)`.
+**Primary / Unique Keys:** All tables use `id` `BIGINT UNSIGNED AI` except `chapters.id` `TINYINT UNSIGNED AI`, `bataan_locations.id` `INT UNSIGNED AI`, `compatibility_matrix.recipient_type` `VARCHAR(3)`, `system_settings.setting_key` `VARCHAR(80)`, `auth_throttle.identifier` `VARCHAR(210)`, `schema_migrations.name`. Unique: `users.email`, `chapters.code`, `bataan_locations.psgc_code`, `password_resets.token_hash`, `member_documents.stored_name`, `matches(request_id, donor_id)`, `notifications(dedup_key, generation)`.
 
-**Foreign-Key Actions:** `ON DELETE CASCADE` for owned children (password resets, documents, decisions target, blood requests by requester, matches by request/donor, donation reports by match/donor, notifications by user); `ON DELETE SET NULL` for actor/reviewer references (audit actor, verification officer, donation confirmer) to preserve history; `ON UPDATE CASCADE` for chapter references.
+**Foreign-Key Actions:** `ON DELETE CASCADE` for owned children (password resets, documents, decisions target, blood requests by requester, matches by request/donor, donation reports by match/donor, notifications by user); `ON DELETE SET NULL` for actor/reviewer/references (audit actor, verification officer, donation confirmer, `users.location_id`, `blood_requests.location_id`) to preserve history; `ON UPDATE CASCADE` for chapter and location references.
 
 **CHECK Constraints (InnoDB, verified via `SHOW CREATE TABLE` and `ERROR 4025` tests):**
 - `chk_users_blood_type` / `chk_users_blood_source` / `chk_users_blood_verified` — blood type and provenance consistency.
@@ -268,7 +291,7 @@ Runner bookkeeping (`name` PK, `applied_at`) managed by `database/run_migrations
 
 **Polymorphic / Logical References (documented as non-FK):** `audit_log.target_type`/`target_id` (`VARCHAR(60/64)`, no FK) and `notifications.related_type`/`related_id` (`VARCHAR(40)`/`BIGINT UNSIGNED`, `NULL`, no FK) are application-level polymorphic pointers; do not draw as FK in the ERD.
 
-**Seeder Idempotency:** `001_chapters.sql` (`ON DUPLICATE KEY UPDATE`) and `003_system_settings.sql` (`INSERT IGNORE`) keep fixed reference data at 3 chapters and 2 settings.
+**Seeder Idempotency:** `001_chapters.sql` (`ON DUPLICATE KEY UPDATE`), `003_system_settings.sql` (`INSERT IGNORE`), and `004_bataan_locations.sql` (`ON DUPLICATE KEY UPDATE`) keep fixed reference data at 3 chapters, 2 settings, and 249 Bataan locations (12 + 237).
 
 **Timestamps:** App writes UTC strings; PDO `time_zone='+00:00'`; `created_at`/`updated_at` `TIMESTAMP` (`audit_log`/`notifications`/`verification_decisions` `TIMESTAMP(3)` millisecond), `expired_at`/`reported_at` `DATETIME`.
 
@@ -276,16 +299,17 @@ Runner bookkeeping (`name` PK, `applied_at`) managed by `database/run_migrations
 
 ## Schema Verification
 
-- **Tables verified:** 14 `INFORMATION_SCHEMA.TABLES` rows in `bloodmatch_dev`: `audit_log`, `auth_throttle`, `blood_requests`, `chapters`, `compatibility_matrix`, `donation_reports`, `matches`, `member_documents`, `notifications`, `password_resets`, `schema_migrations`, `system_settings`, `users`, `verification_decisions` — 13 domain + 1 bookkeeping. All 13 domain tables match migrations 001–013 (plus 014 indexes).
-- **Relationships verified (14 FKs):** via `SHOW CREATE TABLE` and `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` — listed above — all `CASCADE`/`SET NULL` actions as documented.
+- **Tables verified:** 15 `INFORMATION_SCHEMA.TABLES` rows in `bloodmatch_dev`: `audit_log`, `auth_throttle`, `bataan_locations`, `blood_requests`, `chapters`, `compatibility_matrix`, `donation_reports`, `matches`, `member_documents`, `notifications`, `password_resets`, `schema_migrations`, `system_settings`, `users`, `verification_decisions` — 14 domain + 1 bookkeeping. All 14 domain tables match migrations 001–013 + 015–016 (plus 014 indexes).
+- **Relationships verified (16 FKs):** via `SHOW CREATE TABLE` and `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` — listed above (14 pre-016 + `fk_users_location`, `fk_requests_location`) — all `CASCADE`/`SET NULL` actions as documented.
 - **Polymorphic / logical references:** 2 pairs (`audit_log` target, `notifications` related) verified as non-FK `VARCHAR`/`BIGINT` nullable, no constraints.
-- **Discrepancies between previous `docs/erd.md` and actual schema:** previous file documented only `001–013` with ASCII sketch (`chapters ──< users ──< password_resets`...), omitted `system_settings`/`notifications` details in diagram, omitted 014 composites, and used descriptive rather than exact `SHOW CREATE` types/collations. Corrected here to full `001–014` with exact types, FK actions, CHECKs, triggers and Mermaid.
+- **Discrepancies corrected:** historical Phase-17 `docs/erd.md` documented only `001–014` (prior revision 001–013 ASCII sketch, omitted 014 composites, used descriptive types). Corrected here to full `001–016` with exact types, FK actions, CHECKs, triggers and Mermaid, including `users.profile_picture` (015), `users.location_id` / `blood_requests.location_id` + `bataan_locations` (016).
 - **Live checks:** `D:\xampp\mysql\bin\mysql.exe -h 127.0.0.1 -P 3307 -u root -N -B -e "SHOW CREATE TABLE users\G"` / `KEY_COLUMN_USAGE` / `run_migrations.php` re-run 0 applied; FK violation → `ERROR 1452`, CHECK violation → `ERROR 4025`, audit `UPDATE`/`DELETE` → `ERROR 45000` as expected.
+- **Migrations 015–016:** `users.profile_picture` nullable 64-hex verified via `tests/profile_picture.ps1` (P07 64-hex row check); `bataan_locations` (249 rows: 12 + 237) plus location FKs verified via `run_migrations.php` and `tests/location.ps1` (20/20, L01–L20).
 
 ---
 
 ## Files Changed
 
-- `docs/erd.md` — replaced ASCII overview with complete 001–014 Mermaid ERD, precise column types/keys/FK actions, full entity/relationship/constraints documentation.
-- *(Optional rendered)* `docs/erd.svg` / `docs/erd.png` — generate via `npx @mermaid-js/mermaid-cli -i docs/erd.md -o docs/erd.svg` (Mermaid Live Editor paste of the block above produces identical output). No application code or database schema was modified.
+- `docs/erd.md` — synchronized Mermaid ERD to 001–016 (added `bataan_locations`, `users.profile_picture`, `users.location_id`, `blood_requests.location_id` + FKs/relationships/constraints).
+- `docs/erd.svg` — regenerated 2026-09-28 from current Mermaid block via `npx @mermaid-js/mermaid-cli` (12.0.0); verified contains `bataan_locations`, `profile_picture`, `location_id`, `users`. No application code or database schema was modified.
 

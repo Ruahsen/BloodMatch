@@ -191,6 +191,45 @@ final class MatchService
         ];
     }
 
+    /**
+     * Reconcile persisted matches after a donor's location changed.
+     * Re-runs generation WITHOUT bumping (same generation number), so existing
+     * notification deduplication holds and no new notifications are emitted.
+     * Only OPEN requests where the donor holds a live match are touched;
+     * COMPLETED/CLOSED history is never rewritten.
+     *
+     * @return int[] request IDs that were refreshed
+     */
+    public function refreshMatchesForDonor(int $donorId, ?int $actorId = null): array
+    {
+        $pdo = Database::pdo();
+        $stmt = $pdo->prepare(
+            "SELECT DISTINCT m.request_id
+              FROM matches m
+              JOIN blood_requests br ON br.id = m.request_id
+              WHERE m.donor_id = ?
+                AND m.status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED')
+                AND br.status = 'OPEN'"
+        );
+        $stmt->execute([$donorId]);
+        $requestIds = array_map(
+            static fn ($r): int => (int) $r['request_id'],
+            $stmt->fetchAll(PDO::FETCH_ASSOC)
+        );
+
+        $refreshed = [];
+        foreach ($requestIds as $requestId) {
+            try {
+                $this->generateForRequest($requestId, false, 'donor_location_change', $actorId ?? $donorId);
+                $refreshed[] = $requestId;
+            } catch (\Throwable $e) {
+                error_log('[matches] donor-location refresh failed for request ' . $requestId . ': ' . $e->getMessage());
+            }
+        }
+
+        return $refreshed;
+    }
+
     public function privacySafeMatches(int $requestId, ?int $onlyDonorId = null): array
     {
         $sql = 'SELECT m.id AS match_id, m.donor_id, m.generation, m.status, m.distance_km, m.rank_score,

@@ -1,5 +1,7 @@
 # Phase 6 Verification Log — Blood Request Lifecycle
 
+> Historical record (2026-08-26). Preserved as-run (migrations 001–008 snapshot in clean-drill note is historical; current schema 001–016). Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 6 still 35/35; request location now `location_id`, material location edit L12).
+
 Executed: 2026-08-26 · Suite: `tests/phase6.ps1` (35 assertions) · **Result: 35 passed, 0 failed**
 Regressions after changes: phase3 **23/23**, phase4 **23/23**, phase5 **40/40** (all unchanged)
 Clean-database drill: DROP/recreate `bloodmatch_dev` → migrations 001–008 applied → seeds → **all four suites green against the rebuilt DB** (121 total assertions)

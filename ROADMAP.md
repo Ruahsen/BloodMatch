@@ -1,7 +1,7 @@
 # BloodMatch — Master Implementation Roadmap
 
 > Derived from [CONTEXT.md](./CONTEXT.md) (requirements source of truth, incl. §9 Finalized Business Rules and §10 Verified Implementation Status) and [AGENTS.md](./AGENTS.md) (development rules).
-> This roadmap plans work only — no application code has been written.
+> Original plan preserved below; completed phases retain their historical verification dates. Current state (post-Phase-17) is summarized in §0.1 and “Post-Phase-17 additions”.
 
 ---
 
@@ -9,11 +9,13 @@
 
 ### 0.1 Functional & Security Implementation State
 
-Per the verified Repository Audits and Master Regression Suite (`tests/run_all.ps1`, 2026-08-27):
+Per the verified Repository Audits and Master Regression Suite (`tests/run_all.ps1`, current baseline 2026-09-24 in `docs/test-log-location.md`):
 - **Phases 1–12:** Complete and end-to-end verified.
 - **Phase 15 (Frontend Integration, Accessibility & Design Polish):** Complete and end-to-end verified; clean Vite production build.
 - **Phase 16 (Security & Performance Hardening):** Complete and end-to-end verified (15/15 security hardening assertions).
-- **Master Regression Suite:** 11 / 11 suites passed (316 / 316 assertions green).
+- **Phase 17 (Traceability & Handover):** Complete 2026-08-27 (historical 11/11, 316/316 baseline preserved in `docs/test-log-phase17.md`).
+- **Post-Phase-17 additions (current):** migration 015 profile pictures, migration 016 Bataan location reference system + seed 004, donor-location refresh (`refreshMatchesForDonor`), privacy-notice gates, `tests/location.ps1` (20/20) and `tests/profile_picture.ps1` (P01–P13).
+- **Master Regression Suite (current):** 12 / 12 suites passed (343 assertions green).
 
 | Requirements & Scope | State |
 |---|---|
@@ -327,7 +329,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 > Complete frontend design system unification, accessibility pass, and responsive layout polish delivered via `frontend-design` and `impeccable`.  
 > - **Design tokens & styling:** Refined B&W design tokens in `tokens.css` and complete design system in `global.css` (Light/Dark themes, typography scale, metric cards, status chips, accessible form controls, empty states, medical disclaimers).
 > - **Product workflows:** Polished all member, donor, requester, chapter officer, and system administrator workflows across 17 pages.
-> - **Verification Evidence:** [docs/test-log-phase15.md](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/docs/test-log-phase15.md) · Vite production build clean (`dist/`) in 1.35s · Master regression: 316/316 assertions green across Phases 3–16 via [tests/run_all.ps1](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/tests/run_all.ps1).
+> - **Verification Evidence:** `docs/test-log-phase15.md` · Vite production build clean (`dist/`) in 1.35s · Historical master regression at Phase-15 time: 316/316 assertions green across Phases 3–16 via `tests/run_all.ps1` (superseded by current 12/12, 343 baseline in `docs/test-log-location.md`).
 
 1. **Objective:** Unify all screens into a coherent responsive black-and-white identity (light/dark), meeting accessibility/performance baselines (AGENTS.md #26–28).
 2. **Requirements covered:** UX/UI constraints across all FRs; §4 interface stance (social-style familiarity only where appropriate).
@@ -336,7 +338,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 5. **Backend/API work:** None (contract parity preserved).
 6. **Frontend work:** Design-system pass (typography scale, spacing, B&W palette + theme toggle persisted); responsive layout audit (mobile-first for donor-facing flows); accessibility pass (labels, focus management, contrast in both themes, keyboard nav); empty/error/loading states everywhere; clean production bundle compilation.
 7. **Security considerations:** Parameter-free profile mutations, privacy-safe demand map and donor anonymization, sanitized audit contexts.
-8. **Tests required:** Production frontend build, full regression test runner (`tests/run_all.ps1` 11/11 suites green). Total 316/316 assertions green.
+8. **Tests required:** Production frontend build, full regression test runner (`tests/run_all.ps1` 11/11 suites green at the time). Historical total 316/316 assertions green (superseded by current 12/12, 343).
 9. **Definition of Done:** All primary flows usable mobile+desktop in both themes; a11y checks pass stated baseline; design-system doc committed.
 
 **Internal order:** (1) design tokens/theme system → (2) shared components refactor → (3) page-by-page polish (donor flows first) → (4) a11y/responsive fixes → (5) audits + snapshots.
@@ -349,7 +351,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 > All security hardening controls and verification suites are implemented and verified green.  
 > - **Security fixes:** Session cookie deletion preservation (`SEC-MED-01`), defense-in-depth security headers (`Content-Security-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`), mutation rate limiting on high-risk endpoints (`POST /api/requests`, `POST /api/profile/documents`, `POST /api/profile/resubmit`).
 > - **Performance indexes:** Composite indexes active on `blood_requests(request_chapter_id, status, created_at)` and `audit_log(target_type, target_id, created_at)` via Migration 014.
-> - **Verification Evidence:** [docs/test-log-phase16.md](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/docs/test-log-phase16.md) · Suite: [tests/phase16_security.ps1](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/tests/phase16_security.ps1) (15/15 passed) · Master regression: 316/316 assertions green across Phases 3–16 · Vite production build clean.
+> - **Verification Evidence:** `docs/test-log-phase16.md` · Suite: `tests/phase16_security.ps1` (15/15 passed) · Historical master regression at Phase-16 time: 316/316 assertions green across Phases 3–16 (superseded by current 12/12, 343) · Vite production build clean.
 
 1. **Objective:** System-wide verification: security review, integration suites, and operational readiness on XAMPP.
 2. **Requirements covered:** AGENTS.md #10–16, #29–31; NFR placeholders (see §0.2 open item).
@@ -358,33 +360,47 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 5. **Backend/API work:** Session cookie deletion fix in `Session.php`; CSP & Permissions-Policy headers in `SecurityHeaders.php`; mutation rate limiting in `AuthThrottleRepository.php`, `RequestsController.php`, `DocumentController.php`, and `ProfileController.php`.
 6. **Frontend work:** Vite production bundle compatibility verification with strict CSP (0 violations).
 7. **Security considerations:** Parameter-free profile mutations, IDOR assertions on requests/matches/reports/notifications, audit log immutability triggers, MIME validation on document uploads.
-8. **Tests required:** `tests/phase16_security.ps1` (15/15 green), full regression suite (Phases 3–12: 301/301 green). Total 316/316 assertions green.
+8. **Tests required:** `tests/phase16_security.ps1` (15/15 green), full regression suite (Phases 3–12: 301/301 green). Historical total 316/316 assertions green on 2026-08-27 (superseded by current 12/12, 343).
 9. **Definition of Done:** Zero high/critical findings open; regression suite 100% green; security test log committed.
 
 **Internal order:** (1) automated authz/IDOR crawl → (2) manual pentest pass → (3) fix + retest loop → (4) performance/load checks → (5) backup drill → (6) sign-off.
 
 ---
 
-## PHASE 17 — Final Requirements Traceability & Handover
+## PHASE 17 — Final Requirements Traceability & Handover (Historical baseline 2026-08-27)
 
-> **Status:** ✅ **IMPLEMENTED AND VERIFIED** (2026-08-27)  
-> Definitive FR ↔ NFR ↔ Business Rules ↔ Evidence matrix published; zero code changes; master test baseline preserved (316/316 green).  
-> - **Traceability matrix:** Complete end-to-end mapping of FR-01–FR-20, NFR-01–NFR-17, and Q1–Q25 decisions in [docs/traceability.md](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/docs/traceability.md).
-> - **API Inventory:** Comprehensive documentation of all 26 endpoints in [docs/api.md](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/docs/api.md).
-> - **Schema & Test logs:** Schema synchronized in [docs/erd.md](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/docs/erd.md); verification log in [docs/test-log-phase17.md](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/docs/test-log-phase17.md).
-> - **Verification Evidence:** Master regression suite [tests/run_all.ps1](file:///d:/James/SCHOOL%203RD%20YEAR/BloodMatch_OxAlpha/tests/run_all.ps1) passing 316/316 assertions (100% green); clean Vite production build.
+> **Status:** ✅ **IMPLEMENTED AND VERIFIED** (2026-08-27 — historical baseline; superseded for current totals by Post-Phase-17 additions and `docs/test-log-location.md`)
+> Definitive FR ↔ NFR ↔ Business Rules ↔ Evidence matrix published; zero code changes at the time; historical test baseline 316/316 green (11/11 suites).
+> - **Traceability matrix:** Complete end-to-end mapping of FR-01–FR-20, NFR-01–NFR-17, and Q1–Q25 decisions in `docs/traceability.md` (historical 2026-08-27 revision documented 26 endpoints / 001–014 schema; see current `docs/api.md` / `docs/erd.md` for 001–016).
+> - **API Inventory:** Historical inventory covering 26 endpoints in `docs/api.md` (superseded; current route table has 55 method+path registrations — see `backend/routes/api.php`).
+> - **Schema & Test logs:** Historical schema snapshot 001–014 in `docs/erd.md`; verification log in `docs/test-log-phase17.md` (preserved as historical record).
+> - **Verification Evidence (historical):** Master regression suite `tests/run_all.ps1` passing 316/316 assertions (100% green) on 2026-08-27; clean Vite production build.
 
 1. **Objective:** Produce the definitive FR ↔ implementation ↔ evidence matrix; update CONTEXT.md §10 statuses honestly.
 2. **Requirements covered:** AGENTS.md #29–33; CONTEXT.md §10 maintenance rule.
 3. **Dependencies:** Phase 16 green.
-4. **Database work:** Capture final schema snapshot into `docs/erd.md`.
-5. **Backend/API work:** Documented all endpoints in `docs/api.md`.
+4. **Database work:** Capture final schema snapshot into `docs/erd.md` (historical 001–014 snapshot; 015–016 documented post-17).
+5. **Backend/API work:** Documented endpoints in `docs/api.md` (historical 26; current set documented post-17).
 6. **Frontend work:** None (design and accessibility verified).
 7. **Security considerations:** Ensure evidence docs themselves contain no secrets/PII.
-8. **Tests required:** Re-run full suite on clean clone as final proof (`tests/run_all.ps1`: 316/316 assertions green).
+8. **Tests required:** Re-run full suite on clean clone as final proof (historical `tests/run_all.ps1`: 316/316 assertions green; current: 12/12, 343).
 9. **Definition of Done:** `docs/traceability.md` maps every FR-01–FR-20 and NFR-01–NFR-17 to implementing files, endpoints, tables, tests, and verification dates; CONTEXT.md §10 updated.
 
 **Internal order:** (1) matrix draft from phase logs → (2) evidence citation pass → (3) clean-clone re-verification → (4) CONTEXT.md §10 update → (5) owner review.
+
+---
+
+## Post-Phase-17 additions (current — not a renumbered phase)
+
+> The repository does not establish these as a numbered phase. They are documented here without inventing fake phase history.
+
+- **Migration 015 profile pictures** (`database/migrations/015_create_profile_picture.sql`): `users.profile_picture`; `ProfilePictureController.php` + `ProfilePictureStorageService.php`; `NavbarAvatar` with fallback; `tests/profile_picture.ps1` (P01–P13).
+- **Migration 016 Bataan location reference** (`database/migrations/016_location_reference.sql` + `database/seeds/004_bataan_locations.sql`): `bataan_locations` (12 + 237), `users.location_id` / `blood_requests.location_id`; `LocationService.php` / `LocationController.php` / `LocationSelector.jsx`; `GET /api/locations/municipalities`, `GET /api/locations/barangays`; raw coordinates rejected; `tests/location.ps1` (L01–L20, 20/20).
+- **Donor-location refresh**: `MatchService::refreshMatchesForDonor()` wired in `ProfileController.php`; recalculates affected OPEN matches without generation bump, no duplicate notifications, COMPLETED/CLOSED preserved (L17–L20).
+- **Privacy notices**: registration + ID-upload mandatory `privacy_acknowledged` (frontend `PrivacyNoticeModal.jsx` + backend `AuthService` / `DocumentController`); extended assertions in `tests/phase3.ps1` / `tests/phase5.ps1`.
+- **Notification/media updates**: in-navbar `NotificationFlyout.jsx` as current primary UI (page retained as View-all), `GET /api/notifications/unread-count`; theme-persisted B&W UI with `hamburger-react` menu; SVG favicon (`favicon.svg` + `favicon-dark.svg`, referenced in `frontend/index.html`).
+- **Current verification**: `tests/run_all.ps1` 12/12 suites green, 343 assertions (Phase 3: 26, Phase 4: 23, Phase 5: 44, Phase 6: 35, Phase 7: 28, Phase 8: 30, Phase 9: 16, Phase 10: 43, Phase 11: 31, Phase 12: 32, Location: 20/20, Phase 16 security: 15); evidence `docs/test-log-location.md`.
+- **Remaining future work**: per AGENTS.md priority — correctness/security first; no invented roadmap items. Genuine gaps (if any) are listed in the documentation sync final report, not here.
 
 ---
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { List, Moon, Sun, X } from '@phosphor-icons/react'
+import { Moon, Sun, User } from '@phosphor-icons/react'
+import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useTheme } from './context/ThemeContext'
 import { clearCsrf } from './services/apiClient'
@@ -14,6 +15,8 @@ import OfficerConfirmationsPage from './pages/OfficerConfirmationsPage'
 import RequestsPage from './pages/RequestsPage'
 import RequestFormPage from './pages/RequestFormPage'
 import MatchesPage from './pages/MatchesPage'
+import NotificationFlyout from './components/NotificationFlyout'
+import Footer from './components/Footer'
 import NotificationsPage from './pages/NotificationsPage'
 import AdminAuditLogsPage from './pages/AdminAuditLogsPage'
 import OfficerAuditLogsPage from './pages/OfficerAuditLogsPage'
@@ -25,10 +28,20 @@ import { api } from './services/apiClient'
 
 function HomePage() {
   const { user } = useAuth()
+  const { theme } = useTheme()
+  const heroSrc = theme === 'dark' ? '/Home-Page-Picture-Dark.png' : '/Home-Page-Picture-White.png'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
       {/* Hero: editorial, halftone, reduced density */}
       <section className="hero" aria-labelledby="hero-title">
+        <img
+          className="hero-bg"
+          src={heroSrc}
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          decoding="async"
+        />
         <div className="hero-kicker">Bataan · DeMolay Community Network</div>
         <h1 id="hero-title" className="hero-title">
           Verified blood <span className="accent">matching</span>,<br />without the noise.
@@ -114,6 +127,21 @@ function RequireAuth({ children, roles }) {
   return children
 }
 
+function NavbarAvatar({ src, alt }) {
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => { setFailed(false) }, [src])
+
+  if (!src || failed) {
+    return (
+      <span className="avatar avatar-fallback" role="img" aria-label="No profile picture">
+        <User size={16} weight="regular" aria-hidden="true" />
+      </span>
+    )
+  }
+  return <img className="avatar" src={src} alt={alt} onError={() => setFailed(true)} />
+}
+
 export default function App() {
   const { theme, toggleTheme } = useTheme()
   const { user, loading, logout } = useAuth()
@@ -169,8 +197,11 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-inner">
           <Link to="/" className="brand" aria-label="BloodMatch Home">
+            <svg className="brand-mark" width="18" height="18" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" focusable="false">
+              <path d="M6 6 H13 V12 L9 16 L13 20 V26 H6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
+              <path d="M26 6 H19 V13.5 L16.5 16 L19 18.5 V26 H26 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
+            </svg>
             <span>BloodMatch</span>
-            <span className="brand-badge">Bataan</span>
           </Link>
 
           <nav className="nav nav--desktop" aria-label="Main Navigation">
@@ -197,34 +228,59 @@ export default function App() {
                     <Link to="/admin/audit-logs" className={`nav-link ${isActive('/admin/audit-logs') ? 'active' : ''}`} aria-current={isActive('/admin/audit-logs') ? 'page' : undefined}>Audit Logs</Link>
                   </>
                 )}
-                <Link to="/notifications" className={`nav-link ${isActive('/notifications') ? 'active' : ''}`} aria-label={`Notifications, ${unread} unread`} aria-current={isActive('/notifications') ? 'page' : undefined}>
-                  Notifications {unread > 0 && <span className="nav-badge">{unread}</span>}
-                </Link>
-              </>
-            ) : null}
+                </>
+              ) : null}
           </nav>
 
-          <div className="nav-actions nav-actions--desktop">
-            {user ? (
-              <>
-                <span className="user-tag" title={user.email}><strong>{user.full_name}</strong> <span>({user.role})</span></span>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={handleLogout}>Log out</button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className={`nav-link ${isActive('/login') ? 'active' : ''}`} aria-current={isActive('/login') ? 'page' : undefined}>Log in</Link>
-                <Link to="/register" className={`btn btn-sm ${isActive('/register') ? 'active' : ''}`}>Register</Link>
-              </>
-            )}
-          </div>
+          <div className="topbar-right">
+            <div className="nav-actions nav-actions--desktop">
+              {user ? (
+                <>
+                  <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
+                  <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
+                  <span className="user-identity" title={user.email}>
+                    <span className="user-name"><strong>{user.full_name}</strong></span>
+                    <span className="user-status" aria-label={`Role: ${user.role}`}>({user.role})</span>
+                  </span>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={handleLogout}>Log out</button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className={`nav-link ${isActive('/login') ? 'active' : ''}`} aria-current={isActive('/login') ? 'page' : undefined}>Log in</Link>
+                  <Link to="/register" className={`btn btn-sm ${isActive('/register') ? 'active' : ''}`}>Register</Link>
+                </>
+              )}
+            </div>
 
-          <div className="topbar-utilities">
-            <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
-              {theme === 'light' ? <Moon size={16} weight="regular" aria-hidden="true" /> : <Sun size={16} weight="regular" aria-hidden="true" />}
-            </button>
-            <button type="button" className="hamburger" aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileOpen} aria-controls="mobile-panel" onClick={() => setMobileOpen(!mobileOpen)}>
-              {mobileOpen ? <X size={18} weight="regular" aria-hidden="true" /> : <List size={18} weight="regular" aria-hidden="true" />}
-            </button>
+            <div className="topbar-utilities">
+              {user && (
+                <span className="notif-mobile">
+                  <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
+                </span>
+              )}
+              <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+                {theme === 'light' ? <Moon size={16} weight="regular" aria-hidden="true" /> : <Sun size={16} weight="regular" aria-hidden="true" />}
+              </button>
+              <span
+                className="hamburger"
+                onKeyDown={(e) => {
+                  if (e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault()
+                    setMobileOpen((v) => !v)
+                  }
+                }}
+              >
+                <Hamburger
+                  toggled={mobileOpen}
+                  toggle={setMobileOpen}
+                  size={20}
+                  rounded
+                  duration={0.22}
+                  color="currentColor"
+                  label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                />
+              </span>
+            </div>
           </div>
         </div>
 
@@ -237,7 +293,6 @@ export default function App() {
                   <div className="mobile-section-label">Account</div>
                   <Link to="/profile" className={`mobile-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Profile</Link>
                   <Link to="/requests/mine" className={`mobile-link ${isActive('/requests/mine') ? 'active' : ''}`} aria-current={isActive('/requests/mine') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>My Requests</Link>
-                  <Link to="/notifications" className={`mobile-link ${isActive('/notifications') ? 'active' : ''}`} aria-label={`Notifications, ${unread} unread`} aria-current={isActive('/notifications') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Notifications {unread > 0 && <span className="nav-badge">{unread}</span>}</Link>
                   {user.role === 'officer' && (
                     <>
                       <div className="mobile-section-label">Officer</div>
@@ -259,7 +314,13 @@ export default function App() {
                     </>
                   )}
                   <div className="mobile-section-label">Session</div>
-                  <div className="user-tag" title={user.email} style={{ alignSelf: 'flex-start', marginBottom: 'var(--space-2)' }}><strong>{user.full_name}</strong> <span>({user.role})</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                    <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
+                    <div className="user-identity user-identity--mobile" title={user.email} style={{ alignSelf: 'flex-start' }}>
+                      <span className="user-name"><strong>{user.full_name}</strong></span>
+                      <span className="user-status" aria-label={`Role: ${user.role}`}>({user.role})</span>
+                    </div>
+                  </div>
                   <button type="button" className="btn btn-secondary" style={{ width: '100%' }} onClick={handleLogout}>Log out</button>
                 </>
               ) : (
@@ -310,6 +371,8 @@ export default function App() {
           </Routes>
         )}
       </main>
+
+      <Footer />
     </>
   )
 }

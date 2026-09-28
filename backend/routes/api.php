@@ -11,10 +11,12 @@ use BloodMatch\Controllers\Auth\CsrfController;
 use BloodMatch\Controllers\CompatibilityController;
 use BloodMatch\Controllers\DocumentController;
 use BloodMatch\Controllers\DonationReportController;
+use BloodMatch\Controllers\LocationController;
 use BloodMatch\Controllers\ProfileController;
 use BloodMatch\Controllers\RequestsController;
 use BloodMatch\Controllers\MatchesController;
 use BloodMatch\Controllers\NotificationsController;
+use BloodMatch\Controllers\ProfilePictureController;
 use BloodMatch\Controllers\Auth\LoginController;
 use BloodMatch\Controllers\Auth\LogoutController;
 use BloodMatch\Controllers\Auth\MeController;
@@ -32,6 +34,8 @@ return static function (Router $router): void {
     $router->add('GET', '/api/health', [new HealthController(), 'check']);
     $router->add('GET', '/api/csrf', [new CsrfController(), 'token']);
     $router->add('GET', '/api/chapters', [new ChaptersController(), 'index']);
+    $router->add('GET', '/api/locations/municipalities', [new LocationController(), 'municipalities']);
+    $router->add('GET', '/api/locations/barangays', [new LocationController(), 'barangays']);
 
     $router->add('POST', '/api/register', [new RegisterController(), 'register']);
     $router->add('POST', '/api/login', [new LoginController(), 'login']);
@@ -57,6 +61,8 @@ return static function (Router $router): void {
     $router->add('POST', '/api/profile/documents', [new DocumentController(), 'upload']);
     $router->add('GET', '/api/profile/documents', [new DocumentController(), 'listOwn']);
     $router->add('GET', '/api/profile/documents/{id}/file', [new DocumentController(), 'fileOwn']);
+    $router->add('POST', '/api/profile/picture', [new ProfilePictureController(), 'upload']);
+    $router->add('GET', '/api/profile/picture', [new ProfilePictureController(), 'show']);
 
     $router->add('GET', '/api/officer/verifications', [new OfficerVerificationController(), 'queue']);
     $router->add('GET', '/api/officer/verifications/{userId}', [new OfficerVerificationController(), 'detail']);

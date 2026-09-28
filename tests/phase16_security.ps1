@@ -72,6 +72,7 @@ function Login($email) {
 
 $suffix = "$(Get-Random)"
 $future = (Get-Date).ToUniversalTime().AddDays(2).ToString('yyyy-MM-dd HH:mm:ss')
+$balangaLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 
 Write-Host "== Phase 16 Security & Performance Hardening Tests =="
 
@@ -174,8 +175,7 @@ for ($i = 1; $i -le 12; $i++) {
         facility_name = "Facility $i"
         urgency = 'routine'
         needed_datetime = $future
-        latitude = 14.80
-        longitude = 120.53
+        location_id = $oraniLocId
     } $floodAuth.csrf
     if ($r.status -eq 201) {
         $reqCreatedCount++
@@ -211,8 +211,7 @@ $rReq = Invoke-Json $user1Auth.s 'Post' '/api/requests' @{
     facility_name = 'User 1 Clinic'
     urgency = 'routine'
     needed_datetime = $future
-    latitude = 14.80
-    longitude = 120.53
+    location_id = $oraniLocId
 } $user1Auth.csrf
 $reqId = $rReq.body.data.request.id
 

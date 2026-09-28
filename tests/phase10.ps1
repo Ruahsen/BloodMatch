@@ -66,6 +66,7 @@ function Login($email) {
 
 $suffix = "$(Get-Random)"
 $future = (Get-Date).ToUniversalTime().AddDays(2).ToString('yyyy-MM-dd HH:mm:ss')
+$balangaLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 
 Write-Host "== Phase 10 Notifications and Email Tests =="
 
@@ -147,8 +148,7 @@ $r = Invoke-Json $memAuth.s 'Post' '/api/requests' @{
     facility_name = 'Phase 10 Hospital'
     urgency = 'urgent'
     needed_datetime = $future
-    latitude = 14.683
-    longitude = 120.543
+    location_id = $balangaLocId
 } $memAuth.csrf
 
 if ($r.status -eq 201) { Ok 'T07 request created -> matching ran' } else { Bad 'T07 request created' "status $($r.status)" }
@@ -310,8 +310,7 @@ $r = Invoke-Json $memAuth.s 'Post' '/api/requests' @{
     facility_name = 'Cancel Hospital'
     urgency = 'routine'
     needed_datetime = $future
-    latitude = 14.68
-    longitude = 120.54
+    location_id = $balangaLocId
 } $memAuth.csrf
 $cancelReqId = $r.body.data.request.id
 

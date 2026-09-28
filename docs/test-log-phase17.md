@@ -1,4 +1,6 @@
-# Phase 17 Verification Log — Final Requirements Traceability, Handover & Review
+# Phase 17 Verification Log — Final Requirements Traceability, Handover & Review (Historical baseline)
+
+> **Historical Phase-17 baseline (2026-08-27, 11/11 suites, 316/316). Preserved as-run — do not read as the current system baseline.** Superseded by post-Phase-17 implementation (migrations 015–016, donor-location refresh, privacy gates) and current verified system in `docs/test-log-location.md` (2026-09-24: 12/12 suites green, 343 assertions — Phase 3: 26, Phase 4: 23, Phase 5: 44, Phase 6: 35, Phase 7: 28, Phase 8: 30, Phase 9: 16, Phase 10: 43, Phase 11: 31, Phase 12: 32, Location: 20/20, Phase 16: 15; plus standalone `tests/profile_picture.ps1` P01–P13). Historical endpoint count 26 and schema 001–014 below are superseded by current `docs/api.md` (55 registrations) and `docs/erd.md` (001–016).
 
 Executed: 2026-08-27 · Suite: Master Regression Test Runner (`tests/run_all.ps1`) · **Result: 11 / 11 suites passed (316 / 316 assertions green)**
 Vite Production Build: `dist/index.html` (0.45 kB), `dist/assets/index-*.css` (13.14 kB), `dist/assets/index-*.js` (280.36 kB) — built cleanly in 1.35s.

@@ -16,7 +16,7 @@ final class UserRepository
             'SELECT id, email, full_name, phone, role, chapter_id, verification_status,
                     account_status, blood_type, blood_type_source, blood_type_verified,
                     date_of_birth, password_hash, donor_enrolled_at, donor_availability,
-                    last_verified_donation_at, latitude, longitude
+                    last_verified_donation_at, profile_picture, location_id, latitude, longitude
              FROM users WHERE id = ? LIMIT 1'
         );
         $stmt->execute([$id]);
@@ -170,6 +170,7 @@ final class UserRepository
             'blood_type' => 'blood_type',
             'blood_type_source' => 'blood_type_source',
             'blood_type_verified' => 'blood_type_verified',
+            'location_id' => 'location_id',
             'latitude' => 'latitude',
             'longitude' => 'longitude',
         ];
@@ -220,6 +221,12 @@ final class UserRepository
             'UPDATE users SET last_verified_donation_at = ? WHERE id = ?'
         );
         $stmt->execute([$nowUtc, $userId]);
+    }
+
+    public function setProfilePicture(int $userId, string $storedName): void
+    {
+        $stmt = Database::pdo()->prepare('UPDATE users SET profile_picture = ? WHERE id = ?');
+        $stmt->execute([$storedName, $userId]);
     }
 
     public function pendingMembersByChapter(int $chapterId): array

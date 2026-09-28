@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../services/apiClient'
+import LocationSelector from '../components/LocationSelector'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const URGENCIES = [
@@ -18,11 +19,10 @@ export default function RequestFormPage() {
     required_blood_type: '',
     quantity_units: 1,
     facility_name: '',
-    latitude: '',
-    longitude: '',
     urgency: 'routine',
     needed_datetime: ''
   })
+  const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
   const [errors, setErrors] = useState({})
   const [message, setMessage] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -38,10 +38,14 @@ export default function RequestFormPage() {
           required_blood_type: r.required_blood_type,
           quantity_units: r.quantity_units,
           facility_name: r.facility_name,
-          latitude: r.latitude ?? '',
-          longitude: r.longitude ?? '',
           urgency: r.urgency,
           needed_datetime: (r.needed_datetime || '').slice(0, 16).replace(' ', 'T')
+        })
+        const loc = r.location
+        setLocation({
+          location_id: loc?.location_id ?? null,
+          municipality_code: loc?.municipality_code ?? null,
+          barangay_code: loc?.barangay_code ?? null
         })
         setLoaded(true)
       })
@@ -56,10 +60,11 @@ export default function RequestFormPage() {
     setMessage(null)
     setSubmitting(true)
     try {
+      const payload = { ...form, location_id: location.location_id }
       if (editing) {
-        await api.put(`/api/requests/${id}`, form)
+        await api.put(`/api/requests/${id}`, payload)
       } else {
-        await api.post('/api/requests', form)
+        await api.post('/api/requests', payload)
       }
       navigate('/requests/mine')
     } catch (err) {
@@ -162,17 +167,22 @@ export default function RequestFormPage() {
             {errors.urgency && <span className="field-error">{errors.urgency.join(' ')}</span>}
           </div>
 
-          <div className="field">
-            <label htmlFor="lat">Facility Coordinates (Optional, enables proximity ranking)</label>
-            <div className="grid-2">
-              <input id="lat" value={form.latitude} onChange={setField('latitude')} placeholder="Latitude (e.g. 14.6765)" />
-              <input id="lng" value={form.longitude} onChange={setField('longitude')} placeholder="Longitude (e.g. 120.5361)" />
-            </div>
-            {(errors.latitude || errors.longitude || errors.location) && (
-              <span className="field-error">
-                {(errors.latitude || errors.longitude || errors.location || []).join(' ')}
-              </span>
-            )}
+          <div className="field" role="group" aria-labelledby="request-location-heading">
+            <span id="request-location-heading" className="metric-label" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>Facility Location</span>
+            <small className="field-hint" style={{ display: 'block', marginBottom: 'var(--space-3)' }}>
+              Select the municipality or city of the facility and optionally its barangay. This helps
+              BloodMatch prioritize compatible donors who are closer to where the blood is needed.
+              BloodMatch uses an approximate geographic reference for proximity ranking.
+            </small>
+            <LocationSelector
+              municipalityId="request-municipality"
+              municipalityCode={location.municipality_code}
+              barangayCode={location.barangay_code}
+              onChange={setLocation}
+              errors={errors}
+              required={false}
+            />
+            <small className="field-hint">Exact coordinates are never shown to members; only approximate distances are displayed.</small>
           </div>
 
           <div className="button-group" style={{ marginTop: 'var(--space-3)' }}>

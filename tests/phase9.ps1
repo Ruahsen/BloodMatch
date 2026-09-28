@@ -66,6 +66,7 @@ function Login($email) {
 
 $suffix = "$(Get-Random)"
 $future = (Get-Date).ToUniversalTime().AddDays(2).ToString('yyyy-MM-dd HH:mm:ss')
+$balangaLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 
 Write-Host "== Phase 9 standby & cooldown audit =="
 
@@ -88,7 +89,7 @@ $off = Login $offEmail
 # ===== T1 confirm -> standby written atomically =====
 $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     required_blood_type='A+'; quantity_units=1; facility_name='Nine General';
-    needed_datetime=$future; latitude=14.68; longitude=120.54
+    needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $reqId = $r.body.data.request.id
 $r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqId/matches" $null $reqSess.csrf
@@ -118,7 +119,7 @@ if ($r.status -eq 409 -and $dbAv -eq 'standby' -and $r.body.error.details.availa
 # ===== T4 matching excludes standby-blocked donor =====
 $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     required_blood_type='A+'; quantity_units=1; facility_name='Probe Clinic';
-    needed_datetime=$future; latitude=14.68; longitude=120.54
+    needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $probeReq = $r.body.data.request.id
 $r = Invoke-Json $reqSess.s 'Get' "/api/requests/$probeReq/matches" $null $reqSess.csrf

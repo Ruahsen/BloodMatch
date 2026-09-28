@@ -1,5 +1,7 @@
 # Phase 15 Verification Log — Frontend Integration, Accessibility & Design Polish
 
+> Historical record (2026-08-27, 11/11 suites, 316/316). Preserved as-run. Superseded by current baseline `docs/test-log-location.md` (2026-09-24: 12/12 suites, 343 assertions; current UI adds `NotificationFlyout`, `NavbarAvatar` + fallback, `LocationSelector`, `hamburger-react` menu, `favicon.svg`/`favicon-dark.svg`).
+
 Executed: 2026-08-27 · Suite: Frontend Production Build & Master Regression Runner (`tests/run_all.ps1`) · **Result: 11 / 11 suites passed (316 / 316 assertions green)**
 Vite Production Build: `dist/index.html` (0.45 kB), `dist/assets/index-*.css` (13.14 kB), `dist/assets/index-*.js` (280.36 kB) — built cleanly in 1.35s with zero warnings/errors.
 Design Identity: Monochrome Black & White, high-contrast, minimalist, accessible, supporting Light & Dark themes.

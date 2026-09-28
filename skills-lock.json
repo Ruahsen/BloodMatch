@@ -31,6 +31,12 @@
       "skillPath": ".claude/skills/ui-ux-pro-max/SKILL.md",
       "computedHash": "d1de8ff8d228cd4204bf06eb959ef4317d5b927908d9f42765971e33e80c8a7e"
     },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/verification-before-completion/SKILL.md",
+      "computedHash": "b529822bdac4b197b180fe12225cff86b930b65910435103c10622df7f041651"
+    },
     "webapp-testing": {
       "source": "anthropics/skills",
       "sourceType": "github",

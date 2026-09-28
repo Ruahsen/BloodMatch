@@ -1,5 +1,7 @@
 # Phase 8 Verification Log — Donor Availability & Donation Lifecycle
 
+> Historical record (2026-08-26). Preserved as-run. Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 8 still 30/30).
+
 Executed: 2026-08-26 · Suite: `tests/phase8.ps1` (30 assertions) · **Result: 30 passed, 0 failed**
 Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35**, phase7 **28/28** — all unchanged
 Runtime: PHP 8.2.12 dev server → MariaDB @ 3307, `bloodmatch_dev`; zero PHP warnings; React build clean
