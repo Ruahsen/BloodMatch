@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
@@ -8,6 +8,8 @@ export default function AnalyticsPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // Monotonic sequence: a stale response must never overwrite newer state.
+  const seqRef = useRef(0)
 
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date()
@@ -17,21 +19,26 @@ export default function AnalyticsPage() {
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10))
   const [chapterId, setChapterId] = useState('')
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (from = dateFrom, to = dateTo, ch = chapterId) => {
+    const seq = seqRef.current + 1
+    seqRef.current = seq
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
-      if (dateFrom) params.set('date_from', dateFrom)
-      if (dateTo) params.set('date_to', dateTo)
-      if (user?.role === 'admin' && chapterId) params.set('chapter_id', chapterId)
+      if (from) params.set('date_from', from)
+      if (to) params.set('date_to', to)
+      if (user?.role === 'admin' && ch) params.set('chapter_id', ch)
 
       const res = await api.get(`/api/analytics/summary?${params.toString()}`)
+      if (seqRef.current !== seq) return
       setData(res)
+      setError(null)
     } catch (err) {
+      if (seqRef.current !== seq) return
       setError(err.message || 'Failed to load analytics summary.')
     } finally {
-      setLoading(false)
+      if (seqRef.current === seq) setLoading(false)
     }
   }
 
@@ -112,7 +119,7 @@ export default function AnalyticsPage() {
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setRangePreset(90)}>
               Last 90 Days
             </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={fetchAnalytics} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => fetchAnalytics()} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <ArrowsClockwise size={14} weight="regular" aria-hidden="true" /> Refresh
             </button>
           </div>
@@ -133,25 +140,25 @@ export default function AnalyticsPage() {
             <div className="metric-card">
               <span className="metric-label">Total Requests</span>
               <span className="metric-value">{reqVolume.total_requests || 0}</span>
-              <span className="metric-sub">{reqVolume.total_units_needed || 0} units requested</span>
+              <span className="metric-sub">{reqVolume.total_units_requested || 0} units requested</span>
             </div>
 
             <div className="metric-card">
               <span className="metric-label">Fulfillment Rate</span>
-              <span className="metric-value">{reqVolume.fulfillment_rate !== undefined ? `${reqVolume.fulfillment_rate}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.fulfilled || 0} of {reqVolume.resolved_denominator || 0} resolved</span>
+              <span className="metric-value">{reqVolume.fulfillment_rate_percent !== undefined ? `${reqVolume.fulfillment_rate_percent}%` : '0%'}</span>
+              <span className="metric-sub">{reqVolume.fulfilled_requests || 0} of {reqVolume.resolved_requests || 0} resolved</span>
             </div>
 
             <div className="metric-card">
               <span className="metric-label">Cancellation Rate</span>
-              <span className="metric-value">{reqVolume.cancellation_rate !== undefined ? `${reqVolume.cancellation_rate}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.cancelled || 0} cancelled</span>
+              <span className="metric-value">{reqVolume.cancellation_rate_percent !== undefined ? `${reqVolume.cancellation_rate_percent}%` : '0%'}</span>
+              <span className="metric-sub">{reqVolume.cancelled_requests || 0} cancelled</span>
             </div>
 
             <div className="metric-card">
               <span className="metric-label">Expiration Rate</span>
-              <span className="metric-value">{reqVolume.expiration_rate !== undefined ? `${reqVolume.expiration_rate}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.expired || 0} expired</span>
+              <span className="metric-value">{reqVolume.expiration_rate_percent !== undefined ? `${reqVolume.expiration_rate_percent}%` : '0%'}</span>
+              <span className="metric-sub">{reqVolume.expired_requests || 0} expired</span>
             </div>
           </section>
 
@@ -166,8 +173,9 @@ export default function AnalyticsPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-2)' }}>
                 {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bt) => {
-                  const stat = demandByBt[bt] || { requests_count: 0, units_needed: 0 }
-                  const hasData = stat.requests_count > 0
+                  // Backend contract: demand_by_blood_type[bt] = {requests, units}.
+                  const stat = demandByBt[bt] || { requests: 0, units: 0 }
+                  const hasData = stat.requests > 0
 
                   return (
                     <div
@@ -182,7 +190,7 @@ export default function AnalyticsPage() {
                     >
                       <div style={{ fontWeight: 800, fontSize: '1rem' }}>{bt}</div>
                       <div style={{ fontSize: '0.75rem', color: hasData ? 'var(--color-text)' : 'var(--color-text-subtle)' }}>
-                        {stat.requests_count > 0 ? `${stat.requests_count} req (${stat.units_needed}u)` : '0 u'}
+                        {hasData ? `${stat.requests} req (${stat.units}u)` : '0 u'}
                       </div>
                     </div>
                   )
@@ -202,7 +210,7 @@ export default function AnalyticsPage() {
                     <strong>Critical Urgency</strong>
                     <div className="muted" style={{ fontSize: '0.75rem' }}>Immediate trauma / emergency</div>
                   </div>
-                  <span style={{ fontWeight: 800 }}>{demandByUrg.critical?.requests_count || 0} req ({demandByUrg.critical?.units_needed || 0}u)</span>
+                  <span style={{ fontWeight: 800 }}>{demandByUrg.critical?.requests || 0} req ({demandByUrg.critical?.units || 0}u)</span>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
@@ -210,7 +218,7 @@ export default function AnalyticsPage() {
                     <strong>Urgent Category</strong>
                     <div className="muted" style={{ fontSize: '0.75rem' }}>Required within 24h</div>
                   </div>
-                  <span style={{ fontWeight: 800 }}>{demandByUrg.urgent?.requests_count || 0} req ({demandByUrg.urgent?.units_needed || 0}u)</span>
+                  <span style={{ fontWeight: 800 }}>{demandByUrg.urgent?.requests || 0} req ({demandByUrg.urgent?.units || 0}u)</span>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
@@ -218,7 +226,7 @@ export default function AnalyticsPage() {
                     <strong>Routine Category</strong>
                     <div className="muted" style={{ fontSize: '0.75rem' }}>Scheduled clinical procedures</div>
                   </div>
-                  <span style={{ fontWeight: 800 }}>{demandByUrg.routine?.requests_count || 0} req ({demandByUrg.routine?.units_needed || 0}u)</span>
+                  <span style={{ fontWeight: 800 }}>{demandByUrg.routine?.requests || 0} req ({demandByUrg.routine?.units || 0}u)</span>
                 </div>
               </div>
             </section>
@@ -240,21 +248,13 @@ export default function AnalyticsPage() {
                     <tr>
                       <th>Date (UTC)</th>
                       <th>Requests Created</th>
-                      <th>Units Requested</th>
-                      <th>Fulfilled</th>
-                      <th>Cancelled</th>
-                      <th>Expired</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dailyTrend.map((row) => (
-                      <tr key={row.date}>
-                        <td><code>{row.date}</code></td>
-                        <td><strong>{row.requests_created}</strong></td>
-                        <td>{row.units_requested}</td>
-                        <td>{row.fulfilled}</td>
-                        <td>{row.cancelled}</td>
-                        <td>{row.expired}</td>
+                      <tr key={row.req_date}>
+                        <td><code>{row.req_date}</code></td>
+                        <td><strong>{row.req_count}</strong></td>
                       </tr>
                     ))}
                   </tbody>

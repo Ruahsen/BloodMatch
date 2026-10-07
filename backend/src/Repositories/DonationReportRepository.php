@@ -62,6 +62,29 @@ final class DonationReportRepository
         return $stmt->fetchColumn() !== false;
     }
 
+    /**
+     * Atomic idempotent insert: creates a PENDING report only when no other
+     * PENDING report exists for the match. Single statement (no
+     * check-then-insert race); returns the new report id, or null when a
+     * PENDING report already exists (including one inserted concurrently).
+     */
+    public function insertIfNoPending(int $matchId, int $donorId, ?string $note, string $reportedAtUtc): ?int
+    {
+        $stmt = Database::pdo()->prepare(
+            "INSERT INTO donation_reports (match_id, donor_id, report_note, status, reported_at)
+             SELECT ?, ?, ?, 'PENDING', ?
+             FROM DUAL
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM donation_reports WHERE match_id = ? AND status = 'PENDING'
+             )"
+        );
+        $stmt->execute([$matchId, $donorId, $note, $reportedAtUtc, $matchId]);
+        if ($stmt->rowCount() !== 1) {
+            return null;
+        }
+        return (int) Database::pdo()->lastInsertId();
+    }
+
     public function markConfirmed(int $id, int $officerId, string $nowUtc): void
     {
         $stmt = Database::pdo()->prepare(

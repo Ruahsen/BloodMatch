@@ -63,7 +63,9 @@ final class ProfilePictureStorageService
         $storedName = bin2hex(random_bytes(32));
         $target = $dir . '/' . $storedName;
 
-        if (!move_uploaded_file($tmpPath, $target) && !rename($tmpPath, $target)) {
+        // Strict uploaded-file proof: no rename() fallback, so only a file
+        // actually received via HTTP upload can land in storage.
+        if (!is_uploaded_file($tmpPath) || !move_uploaded_file($tmpPath, $target)) {
             throw new RuntimeException('Could not persist uploaded file.');
         }
         chmod($target, 0640);

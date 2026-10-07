@@ -99,7 +99,6 @@ export default function LocationSelector({
             <option key={b.psgc_code} value={b.psgc_code}>{b.name}</option>
           ))}
         </select>
-        <small className="field-hint">Barangay is optional and helps identify your location within the selected municipality.</small>
         {errors.barangay_code && <span className="field-error">{errors.barangay_code.join(' ')}</span>}
       </div>
     </>

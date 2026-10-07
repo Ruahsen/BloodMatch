@@ -30,6 +30,9 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const data = await api.post('/api/login', { email, password })
+    // The server rotates CSRF at the login privilege boundary; drop the
+    // cached pre-login token so the next mutation fetches the fresh one.
+    clearCsrf()
     setUser(data.user)
     return data.user
   }

@@ -14,7 +14,9 @@ final class PasswordResetController
 {
     public function request(): void
     {
-        $email = (string) (Request::str('email') ?? '');
+        // Body-only: reset identifiers must never arrive via query string
+        // (Request::str falls back to $_GET when no source is given).
+        $email = (string) (Request::str('email', Request::json()) ?? '');
         if ($email === '') {
             Response::error('Email is required.', 400);
             return;
@@ -34,9 +36,12 @@ final class PasswordResetController
 
     public function confirm(): void
     {
-        $token = (string) (Request::str('token') ?? '');
-        $password = isset(Request::json()['password']) && is_string(Request::json()['password'])
-            ? Request::json()['password']
+        // Body-only: reset tokens are secrets and must never arrive via
+        // query string (where they leak into access/proxy logs).
+        $body = Request::json();
+        $token = (string) (Request::str('token', $body) ?? '');
+        $password = isset($body['password']) && is_string($body['password'])
+            ? $body['password']
             : '';
 
         if ($token === '' || $password === '') {
@@ -50,7 +55,10 @@ final class PasswordResetController
             Response::error($e->getMessage(), 400, $e->errors());
             return;
         } catch (AuthException $e) {
-            Response::error($e->getMessage(), 400);
+            // Preserve conflict/forbidden semantics (e.g. deactivated
+            // account 403) instead of flattening everything to 400.
+            $code = $e->getCode();
+            Response::error($e->getMessage(), $code >= 400 && $code <= 499 ? $code : 400);
             return;
         }
 

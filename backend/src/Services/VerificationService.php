@@ -57,7 +57,17 @@ final class VerificationService
             }
             $ver->setVerificationStatus($targetId, $decision);
             $ver->addDecision($targetId, (int) $actor['id'], $decision, $reason, $nowUtc);
-            $auditId = AuditLogger::log(
+
+            // A rejected donor must not remain an actionable committed donor:
+            // close live ACCEPTED relationships (either side) at once.
+            if ($decision === 'rejected') {
+                (new MatchDecisionService())->closeAcceptedForInvalidatedUser(
+                    $targetId, 'verification_rejected', (int) $actor['id']
+                );
+            }
+            // Fail-closed: a verification decision without an audit trail
+            // aborts loudly instead of proceeding silently.
+            $auditId = AuditLogger::logCritical(
                 (int) $actor['id'],
                 $decision === 'verified' ? 'verification.approved' : 'verification.rejected',
                 'user',
@@ -79,6 +89,26 @@ final class VerificationService
                     'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
                 ]
             );
+
+            // Age hygiene: verification confirms membership, never donor
+            // eligibility. An age-ineligible member must not carry (or gain
+            // through this decision) donor enrollment.
+            if ($decision === 'verified') {
+                $freshTarget = $users->findById($targetId);
+                if ($freshTarget !== null && $freshTarget['donor_enrolled_at'] !== null) {
+                    $ageAtVerify = AgeEligibilityService::evaluate(
+                        $freshTarget['date_of_birth'] !== null ? (string) $freshTarget['date_of_birth'] : null,
+                        $docs->hasType($targetId, 'parental_consent')
+                    );
+                    if (!$ageAtVerify['donor_path_allowed']) {
+                        $users->clearDonorEnrollment($targetId);
+                        AuditLogger::log((int) $actor['id'], 'donor.unenrolled_age', 'user', (string) $targetId, [
+                            'category' => (string) $ageAtVerify['category'],
+                            'via' => 'verification_decision',
+                        ]);
+                    }
+                }
+            }
 
             $provenanceChanged = false;
             if ($decision === 'verified' && $acceptDonorCard && $docs->hasType($targetId, 'donor_card')) {

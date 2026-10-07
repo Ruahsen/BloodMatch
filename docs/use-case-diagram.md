@@ -44,19 +44,19 @@ The Use Case Diagram of BloodMatch illustrates how DeMolay members, Chapter Offi
 18. **View Blood Requests** — Allows members to list their own requests; officers/admins to view requests in their scope.
 19. **View Blood Request Details** — Allows request owner, matched donors, chapter officers (own chapter), and admins to view full request details.
 20. **Edit Blood Request** — Allows request owner to update facility, needed date/time, units, urgency, or location while request is `OPEN`. Material changes (blood type, location, urgency, needed date, quantity) trigger matching re-evaluation (`request.material_change`).
-21. **Cancel Blood Request** — Allows request owner to cancel an `OPEN` request; status becomes `CANCELLED`, open matches closed.
+21. **Cancel Blood Request** — Allows request owner (or same-chapter officer/admin) to cancel an `OPEN` request; status becomes `CANCELLED`, unresolved matches (`POTENTIAL`/`NOTIFIED`/`RESPONDED`/`ACCEPTED`) closed, accepted donors notified directly.
 
 ### Blood Matching
 22. **Find Compatible Donors** — (System-internal) Automatically executed on request creation and material changes. Uses centralized red-cell ABO/Rh matrix (`BloodCompatibilityService.php`, 8 types; `compatibility_matrix` table+seed), filters to verified/enrolled/available/age-eligible donors, ranks by Compatibility → Availability → Verification → Proximity (`Geo::distanceKm` Haversine) with same-chapter preference boost. Generates persistent `matches` rows with generation number. Donor profile location change triggers `refreshMatchesForDonor()` without generation bump (no duplicate notifications; COMPLETED/CLOSED preserved).
 23. **View Match Results** — Allows request owner, matched donors (own entry only), chapter officers, and admins to view privacy-safe candidates (`donor_reference`, full name, chapter, verification/availability, `approximate_distance_km` only; no coords/phone/email/documents). Chapter display filter optional; never alters underlying match set.
 24. **Re-run Matching** — Allows authorized users (request owner via create/edit flow, chapter officer/admin via `POST /api/officer/requests/{id}/re-match`) to manually trigger match regeneration for an active request. Reconciles existing matches without duplicates (`match.manual_rematch` audited).
-25. **Respond to Match** — Allows the matched donor to signal willingness to donate; transitions match status `POTENTIAL`/`NOTIFIED` → `RESPONDED`. Multiple donors may respond in parallel.
+25. **Respond to Match** — Allows the matched donor to signal willingness to donate; transitions match status `POTENTIAL`/`NOTIFIED` → `RESPONDED` with mandatory email-sharing consent. Multiple donors may respond in parallel. The Home feed reconciles missing/stale rows from live donor state via request-scoped Respond (never per-row generation).
 
 ### Donation
 26. **Submit Donation Report** — Allows the matched donor to submit a donation report (note) for officer confirmation; creates `donation_reports` row with `status='PENDING'`.
 27. **Confirm Donation** — Allows chapter officer (own chapter) or admin to confirm a pending donation report. Executes atomic transaction: marks report `CONFIRMED`, match `COMPLETED`, sets donor `last_verified_donation_at`, activates Standby (42h) and Cooldown (90d), checks request fulfillment threshold (`quantity_units`).
 28. **Reject Donation** — Allows chapter officer (own chapter) or admin to reject a pending donation report; marks report `REJECTED`.
-29. **Fulfill Blood Request** — (System-internal) Automatically transitions request `OPEN` → `FULFILLED` when confirmed donation count reaches `quantity_units`; closes remaining matches to `CLOSED`.
+29. **Fulfill Blood Request** — (System-internal) Automatically transitions request `OPEN` → `FULFILLED` when confirmed donation count reaches `quantity_units`; closes remaining unresolved matches (`POTENTIAL`/`NOTIFIED`/`RESPONDED`/`ACCEPTED`) to `CLOSED`.
 
 ### Notifications
 30. **Receive Notifications** — (System-internal) Creates in-app notification records for events: new matches, verification decisions, donation confirmations/rejections, account status changes, request cancellation/expiration. Deduplication via unique `(dedup_key, generation)`.
@@ -79,7 +79,15 @@ The Use Case Diagram of BloodMatch illustrates how DeMolay members, Chapter Offi
 41. **Manage Users** — Allows System Administrators to list all users system-wide with filters (role, status, chapter, search) and pagination (`GET /api/admin/users`).
 42. **Assign Roles** — Allows System Administrators to assign `member`/`officer`/`admin` roles; officer role requires exactly one chapter assignment; self-role change forbidden.
 43. **Assign Chapter** — Allows System Administrators to assign/clear user chapter binding; clearing an officer's chapter forbidden (422).
-44. **Deactivate/Reactivate Accounts** — Allows System Administrators to soft-deactivate accounts (`account_status='deactivated'`, `deactivated_at` set) or reactivate; verification status untouched; deactivated sessions immediately denied access.
+44. **Deactivate/Reactivate Accounts** — Allows System Administrators to soft-deactivate accounts (`account_status='deactivated'`, `deactivated_at` set) or reactivate; verification status untouched; deactivated sessions immediately denied access. Deactivation immediately closes the user's OPEN `ACCEPTED` relationships (either side) with counterpart notification.
+
+### Home Feed & Match Commitments
+45. **Browse Home Feed** — Allows authenticated members (capability `browse_requests`; no donor enrollment/availability required) to browse `OPEN` requests ranked by compatibility tier → urgency → needed datetime → distance, with blood/urgency/chapter/near-you filters and server-derived per-item actions (`GET /api/requests/feed`, `FeedPage.jsx`).
+46. **Accept Donor** — Allows the requester to select a responded donor (`RESPONDED` → `ACCEPTED`) within unit capacity (`COUNT(ACCEPTED) + COUNT(COMPLETED) <= quantity_units`) with both contact consents; notifies the donor.
+47. **Withdraw Acceptance** — Allows the requester to reverse an acceptance (`ACCEPTED` → `RESPONDED`); willingness survives, requester consent resets, contact revoked, capacity released, donor notified.
+48. **Withdraw Response** — Allows the donor to withdraw a response (`RESPONDED`/`ACCEPTED` → `WITHDRAWN`, terminal for that pair, never resurrected); contact revoked, capacity released, requester notified.
+49. **Manage Contact Consent** — Allows either principal to set only their own email-sharing flag (grants only while `ACCEPTED` + OPEN + both active; revokes in meaningful states); revocation notifies the other principal.
+50. **Exchange Contact Details** — Allows both principals of an `ACCEPTED` (or `COMPLETED` + OPEN) match with both consents and active accounts to retrieve each other's email via the protected contact endpoint; revoked on terminal states.
 
 ---
 
@@ -112,6 +120,12 @@ The Use Case Diagram of BloodMatch illustrates how DeMolay members, Chapter Offi
 | View Match Results | ✅ (own/matched) | ✅ (chapter) | ✅ (all) | — |
 | Re-run Matching | ✅ (own request) | ✅ (chapter) | ✅ (all) | — |
 | Respond to Match | ✅ (matched donor) | — | — | — |
+| Browse Home Feed | ✅ (browse capability) | ✅ | ✅ | — |
+| Accept Donor | ✅ (own request) | — | — | — |
+| Withdraw Acceptance | ✅ (own request) | — | — | — |
+| Withdraw Response | ✅ (own match) | — | — | — |
+| Manage Contact Consent | ✅ (own match) | — | — | — |
+| Exchange Contact Details | ✅ (own match) | — | — | — |
 | Submit Donation Report | ✅ (matched donor) | — | — | — |
 | Confirm Donation | — | ✅ (chapter) | ✅ (all) | — |
 | Reject Donation | — | ✅ (chapter) | ✅ (all) | — |
@@ -162,12 +176,12 @@ The PlantUML source uses standard UML use-case notation with actors, system boun
 - **CONTEXT.md §9 Finalized Business Rules**: Verified against capability matrix (§9.2), matching engine (§9.3–9.4), request lifecycle (§9.5), donor availability/standby/cooldown (§9.6), notifications (§9.7), privacy (§9.8), demand map (§9.9), audit logging (§9.10), analytics (§9.11), officer dashboard (§9.12), chapter scoping (§9.13).
 
 ### Implementation Sources Checked
-- **API Inventory** (`docs/api.md`): 55 method+path registrations (`backend/routes/api.php`) mapped to use cases (historical Phase-17 revision mapped 26; superseded 2026-09-24).
-- **Entity Relationship Diagram** (`docs/erd.md`): Current 001–016 schema tables (users +`profile_picture`/`location_id`, chapters, `bataan_locations`, blood_requests +`location_id`, matches, donation_reports, notifications, audit_log, system_settings, etc.) confirm data structures.
-- **Traceability Matrix** (`docs/traceability.md`): FR ↔ implementation ↔ test evidence mapping (current 12/12, 343).
-- **Test Logs** (`docs/test-log-phase*.md` historical; `docs/test-log-location.md` current): Phases 3–12, 15–17 historical 316/316; current 12/12 green, 343 assertions (Phase 3: 26, Phase 4: 23, Phase 5: 44, Phase 6: 35, Phase 7: 28, Phase 8: 30, Phase 9: 16, Phase 10: 43, Phase 11: 31, Phase 12: 32, Location: 20/20, Phase 16: 15) + standalone `tests/profile_picture.ps1` P01–P13.
-- **Backend Controllers/Services**: `Auth/RegisterController`, `LoginController`, `ProfileController`, `ProfilePictureController`, `LocationController`, `Officer/OfficerVerificationController`, `RequestsController`, `MatchesController`, `DonationReportController`, `OfficerDashboardController`, `Admin/AdminDashboardController`, `Analytics/DemandMapController`, `Analytics/AnalyticsController`, `NotificationsController`, `AuditLog` controllers; `AuthService`, `BloodCompatibilityService`, `MatchService`, `Geo`, `LocationService`, `ProfilePictureStorageService`, `DonorEligibilityService`, `NotificationService`.
-- **Frontend Pages/Components**: RegisterPage (+`PrivacyNoticeModal`), LoginPage, ProfilePage (+`LocationSelector`), OfficerVerificationPage, RequestFormPage (+`LocationSelector`), RequestsPage, MatchesPage, NotificationsPage + `NotificationFlyout` (current primary), DemandMapPage, AnalyticsPage, OfficerDashboardPage, AdminDashboardPage; `App.jsx` navbar (`NavbarAvatar` + fallback, `hamburger-react` menu); favicon `favicon.svg` (+`favicon-dark.svg`).
+- **API Inventory** (`docs/api.md`): 62 method+path registrations (`backend/routes/api.php`) mapped to use cases (historical Phase-17 revision mapped 26; superseded 2026-09-24; feed lifecycle added 7: `GET /api/requests/feed`, request-scoped respond, accept/unaccept/withdraw/consent/contact).
+- **Entity Relationship Diagram** (`docs/erd.md`): Current 001–017 schema tables (users +`profile_picture`/`location_id`, chapters, `bataan_locations`, blood_requests +`location_id`, matches +`ACCEPTED`/`WITHDRAWN` + consent flags, donation_reports, notifications, audit_log, system_settings, etc.) confirm data structures.
+- **Traceability Matrix** (`docs/traceability.md`): FR ↔ implementation ↔ test evidence mapping (current 13/13, 384).
+- **Test Logs** (`docs/test-log-phase*.md` historical; `docs/test-log-feed.md` current): Phases 3–12, 15–17 historical 316/316; current 13/13 green, 384 assertions (Phase 3: 26, Phase 4: 23, Phase 5: 44, Phase 6: 35, Phase 7: 28, Phase 8: 30, Phase 9: 16, Phase 10: 43, Phase 11: 31, Phase 12: 32, Location: 20/20, Phase 16: 15, Feed: 41) + standalone `tests/profile_picture.ps1` P01–P13.
+- **Backend Controllers/Services**: `Auth/RegisterController`, `LoginController`, `ProfileController`, `ProfilePictureController`, `LocationController`, `Officer/OfficerVerificationController`, `RequestsController`, `MatchesController`, `FeedController`, `DonationReportController`, `OfficerDashboardController`, `Admin/AdminDashboardController`, `Analytics/DemandMapController`, `Analytics/AnalyticsController`, `NotificationsController`, `AuditLog` controllers; `AuthService`, `BloodCompatibilityService`, `MatchService`, `MatchDecisionService`, `RequestFeedService`, `Geo`, `LocationService`, `ProfilePictureStorageService`, `DonorEligibilityService`, `NotificationService`.
+- **Frontend Pages/Components**: RegisterPage (+`PrivacyNoticeModal`), LoginPage, ProfilePage (+`LocationSelector`), OfficerVerificationPage, RequestFormPage (+`LocationSelector`), RequestsPage, MatchesPage (accept/withdraw/consent/contact), FeedPage (`/feed`), NotificationsPage + `NotificationFlyout` (current primary), DemandMapPage, AnalyticsPage, OfficerDashboardPage, AdminDashboardPage; `App.jsx` navbar (auth-dependent Home → `/feed`, `NavbarAvatar` + fallback, `hamburger-react` menu); favicon `favicon.svg` (+`favicon-dark.svg`).
 
 ### RBAC Rules Checked
 - Member capabilities per verification status matrix (§9.2): Registered/Limited, Pending/Browse+Request(pending), Verified/Full, Rejected/Resubmit only, Deactivated/None.
@@ -199,11 +213,11 @@ The PlantUML source uses standard UML use-case notation with actors, system boun
 
 | File | Description |
 |---|---|
-| `docs/use-case-diagram.puml` | Editable PlantUML source — updated 2026-09-24 (added `Manage Profile Picture`, `Select Bataan Location` + actor links) |
-| `docs/use-case-diagram.svg` | Rendered vector — regenerated 2026-09-28 via PlantUML Server (104,162 bytes; verified new use cases present) |
-| `docs/use-case-diagram.png` | Rendered raster — regenerated 2026-09-28 via PlantUML Server (206,987 bytes, valid PNG; thesis/Word fallback) |
-| `docs/use-case-diagram.md` | This documentation file (synchronized 2026-09-24, renders verified 2026-09-28) |
+| `docs/use-case-diagram.puml` | Editable PlantUML source — updated for the feed (added `Home Feed & Match Commitments` package: Browse/Accept/Unaccept/Withdraw/Consent/Contact + member links + audit/notification includes) |
+| `docs/use-case-diagram.svg` | Rendered vector — regenerated via PlantUML Server (121,270 bytes; verified all 6 new use cases present) |
+| `docs/use-case-diagram.png` | Rendered raster — regenerated via PlantUML Server (170,398 bytes, valid PNG; thesis/Word fallback) |
+| `docs/use-case-diagram.md` | This documentation file (synchronized to feed implementation: 50 use cases) |
 
 ---
 
-*Generated: 2026-08-27 (historical) | Synchronized: 2026-09-24 to current implementation (migrations 001–016, 12/12 suites green, 343 assertions) per CONTEXT.md §10 and ROADMAP.md Post-Phase-17 additions. Rendered SVG/PNG regenerated 2026-09-28 from current `.puml` and verified.*
+*Generated: 2026-08-27 (historical) | Synchronized: 2026-09-24 to current implementation (migrations 001–016, 12/12 suites green, 343 assertions) per CONTEXT.md §10 and ROADMAP.md Post-Phase-17 additions. Feed resync: migrations 001–017, 13/13 suites green, 384 assertions, 50 use cases; rendered SVG/PNG regenerated from current `.puml` and verified.*

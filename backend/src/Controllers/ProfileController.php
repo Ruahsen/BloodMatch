@@ -69,7 +69,7 @@ final class ProfileController
         if (array_key_exists('date_of_birth', $body)) {
             $dob = Request::str('date_of_birth', $body);
             $dt = $dob === null ? null : DateTimeImmutable::createFromFormat('!Y-m-d', $dob);
-            if ($dob !== null && ($dt === false || $dt->format('Y-m-d') !== $dob || $dt->getTimestamp() > time())) {
+            if ($dob !== null && ($dt === false || $dt->format('Y-m-d') !== $dob || $dt->getTimestamp() > time() || (int) $dt->format('Y') < 1900)) {
                 $v->addError('date_of_birth', 'Date of birth must be a valid past date (YYYY-MM-DD).');
             }
             $fields['date_of_birth'] = $dob;
@@ -127,6 +127,31 @@ final class ProfileController
                 $matchesRefreshed = (new \BloodMatch\Services\MatchService())
                     ->refreshMatchesForDonor((int) $actor['id'], (int) $actor['id']);
             }
+
+            // Safety-critical invalidation only: a changed blood type that is
+            // no longer compatible with an OPEN ACCEPTED request closes that
+            // committed relationship at once (contact revoked, requester
+            // notified). Provenance-only changes never close ACCEPTED.
+            if (array_key_exists('blood_type', $fields)
+                && ((string) ($fields['blood_type'] ?? '') !== (string) ($actor['blood_type'] ?? ''))) {
+                $this->closeIncompatibleAccepted(
+                    (int) $actor['id'],
+                    $fields['blood_type'] !== null ? (string) $fields['blood_type'] : null
+                );
+            }
+
+            // Age re-evaluation on DOB change: donor eligibility must never
+            // survive on a pre-change enrollment. Under-16, or 16-17 without
+            // a parental-consent document on file, loses enrollment at once
+            // (pool predicate requires donor_enrolled_at; RESPONDED rows
+            // stay but can no longer be accepted until re-eligible).
+            if (array_key_exists('date_of_birth', $fields)
+                && ((string) ($fields['date_of_birth'] ?? '') !== (string) ($actor['date_of_birth'] ?? ''))) {
+                $this->reconcileEnrollmentForAge(
+                    (int) $actor['id'],
+                    $fields['date_of_birth'] !== null ? (string) $fields['date_of_birth'] : null
+                );
+            }
         }
 
         $fresh = (new UserRepository())->findById((int) $actor['id']);
@@ -135,6 +160,64 @@ final class ProfileController
             $payload['matches_refreshed'] = $matchesRefreshed;
         }
         Response::success($payload);
+    }
+
+    private function reconcileEnrollmentForAge(int $donorId, ?string $newDob): void
+    {
+        $stillEnrolled = (new UserRepository())->findById($donorId);
+        if ($stillEnrolled === null || $stillEnrolled['donor_enrolled_at'] === null) {
+            return;
+        }
+        $age = AgeEligibilityService::evaluate(
+            $newDob,
+            (new DocumentRepository())->hasType($donorId, 'parental_consent')
+        );
+        if ($age['donor_path_allowed']) {
+            return;
+        }
+        (new UserRepository())->clearDonorEnrollment($donorId);
+        AuditLogger::log($donorId, 'donor.unenrolled_age', 'user', (string) $donorId, [
+            'category' => (string) $age['category'],
+        ]);
+    }
+
+    private function closeIncompatibleAccepted(int $donorId, ?string $newBloodType): void
+    {
+        $accepted = (new \BloodMatch\Repositories\MatchRepository())->listAcceptedForDonor($donorId);
+        if ($accepted === []) {
+            return;
+        }
+        foreach ($accepted as $row) {
+            $compatible = $newBloodType !== null && in_array(
+                $newBloodType,
+                \BloodMatch\Services\BloodCompatibilityService::getCompatibleDonorTypes(
+                    (string) $row['required_blood_type']
+                ),
+                true
+            );
+            if ($compatible) {
+                continue;
+            }
+            (new \BloodMatch\Repositories\MatchRepository())->setStatus((int) $row['match_id'], 'CLOSED');
+            AuditLogger::log($donorId, 'match.closed', 'blood_request', (string) $row['request_id'], [
+                'match_id' => (int) $row['match_id'],
+                'reason' => 'donor_blood_type_changed',
+            ]);
+            \BloodMatch\Services\NotificationService::notify(
+                (int) $row['requester_id'],
+                'match.closed',
+                'An accepted match was closed',
+                'An accepted donor relationship on your blood request was closed because the donor blood type changed. Contact details are no longer available.',
+                [
+                    'related_type' => 'blood_request',
+                    'related_id' => (int) $row['request_id'],
+                    'dedup_key' => \BloodMatch\Services\NotificationService::dedupMatchOccurrence(
+                        (int) $row['match_id'], 'closed', null
+                    ),
+                    'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
+                ]
+            );
+        }
     }
 
     public function resubmit(): void
@@ -194,7 +277,9 @@ final class ProfileController
     {
         $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.availability');
 
-        $value = \BloodMatch\Utils\Request::str('availability');
+        // Body-only read: availability changes must come from the JSON
+        // payload, never merged from the query string.
+        $value = \BloodMatch\Utils\Request::str('availability', \BloodMatch\Utils\Request::json());
         if (!in_array($value, ['available', 'unavailable'], true)) {
             Response::error('Invalid availability value.', 400, [
                 'availability' => ['Value must be "available" or "unavailable".'],
@@ -251,6 +336,7 @@ final class ProfileController
             'chapter_id' => $user['chapter_id'] !== null ? (int) $user['chapter_id'] : null,
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
+            'email_verified_at' => $user['email_verified_at'] ?? null,
             'date_of_birth' => $user['date_of_birth'],
             'blood_type' => $user['blood_type'],
             'blood_type_source' => $user['blood_type_source'],

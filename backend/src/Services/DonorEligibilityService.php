@@ -7,10 +7,57 @@ namespace BloodMatch\Services;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
+use BloodMatch\Repositories\DocumentRepository;
 use BloodMatch\Services\Exceptions\WindowBlockedException;
 
 final class DonorEligibilityService
 {
+    /**
+     * Safety/identity prerequisites for COMMITTING a donor relationship
+     * (acceptance, donation confirmation). Unlike the candidate pool
+     * predicate (MatchService::poolWhereClause), this intentionally omits
+     * scheduling rules — availability toggles, post-donation standby, and
+     * inter-donation cooldown govern FUTURE candidacy, not whether an
+     * already-responded donor relationship may be committed or a physically
+     * completed donation may be confirmed. Account activity, verification,
+     * enrollment, blood compatibility, and age are safety prerequisites and
+     * are always enforced here.
+     */
+    public static function assertSafetyEligible(?array $donor, string $requiredBloodType, string $endpoint): void
+    {
+        $donorId = $donor !== null ? (int) $donor['id'] : 0;
+        $deny = static function (string $reason, string $message) use ($donorId, $endpoint): never {
+            AuditLogger::log($donorId !== 0 ? $donorId : null, 'authz.denied', 'blood_request', null, [
+                'endpoint' => $endpoint,
+                'reason' => $reason,
+            ]);
+            throw new RuntimeException($message, 409);
+        };
+
+        if ($donor === null || (string) $donor['account_status'] !== 'active') {
+            $deny('donor_not_active', 'The donor account is no longer active.');
+        }
+        if ((string) $donor['verification_status'] !== 'verified') {
+            $deny('donor_not_verified', 'The donor is no longer verified.');
+        }
+        if ($donor['donor_enrolled_at'] === null) {
+            $deny('donor_not_enrolled', 'The donor is no longer enrolled as a donor.');
+        }
+
+        $compatible = BloodCompatibilityService::getCompatibleDonorTypes($requiredBloodType);
+        if (!in_array((string) $donor['blood_type'], $compatible, true)) {
+            $deny('donor_incompatible', 'The donor blood type is no longer compatible with this request.');
+        }
+
+        $age = AgeEligibilityService::evaluate(
+            $donor['date_of_birth'] !== null ? (string) $donor['date_of_birth'] : null,
+            (new DocumentRepository())->hasType((int) $donor['id'], 'parental_consent')
+        );
+        if (!$age['donor_path_allowed']) {
+            $deny('age_ineligible', (string) $age['reason']);
+        }
+    }
+
     public static function nowUtc(): string
     {
         return AuthService::nowUtc();

@@ -51,8 +51,11 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status,              account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at,
+             donor_availability, date_of_birth, email_verified_at)
+             # Fixtures bypass /api/register by construction, so they are
+             # grandfather-equivalent (migration 021): verified email marker.
+             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15', UTC_TIMESTAMP());"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -61,6 +64,10 @@ function Login($email) {
     $csrf = Get-Csrf $s
     $r = Invoke-Json $s 'Post' '/api/login' @{ email = $email; password = 'Str0ngPass1' } $csrf
     if ($r.status -ne 200) { throw "login failed for $email ($($r.status))" }
+    # Server rotates CSRF at the login privilege boundary: adopt the fresh
+    # token from the login response (falls back to an explicit re-fetch).
+    $csrf = $r.body.data.csrf_token
+    if ([string]::IsNullOrEmpty($csrf)) { $csrf = Get-Csrf $s }
     return @{ s = $s; csrf = $csrf }
 }
 
@@ -338,7 +345,7 @@ if ($matchRow) {
 
     # Donor responds
     $donorAuth = Login $donorEmail
-    $r = Invoke-Json $donorAuth.s 'Post' "/api/matches/$matchId/respond" @{} $donorAuth.csrf
+    $r = Invoke-Json $donorAuth.s 'Post' "/api/matches/$matchId/respond" @{ donor_share_consent = $true } $donorAuth.csrf
     if ($r.status -eq 200) { Ok 'T31 donor responded to match' } else { Bad 'T31 donor responded' "status $($r.status)" }
 
     # Donor submits report
@@ -374,9 +381,14 @@ $pastDt = (Get-Date).ToUniversalTime().AddHours(-1).ToString('yyyy-MM-dd HH:mm:s
 DbQuery "INSERT INTO blood_requests (requester_id, request_chapter_id, required_blood_type, quantity_units, facility_name, urgency, needed_datetime, status, review_status) VALUES ($memId, 1, 'A+', 1, 'Expired Hospital', 'routine', '$pastDt', 'OPEN', 'not_required');"
 $expReqId = DbQuery "SELECT id FROM blood_requests WHERE facility_name='Expired Hospital' AND requester_id=$memId ORDER BY id DESC LIMIT 1;"
 
-# Run expiry CLI
+# Run expiry CLI. The expiry sweep sends request.expired emails, so the mailer
+# writes diagnostics to stderr when a mail transport is configured; swallow
+# that stream without tripping $ErrorActionPreference='Stop'.
 $projectRoot = (Get-Item $PSScriptRoot).Parent.FullName
-& $PhpPath "$projectRoot/database/run_expiry.php" 2>$null
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+& $PhpPath "$projectRoot/database/run_expiry.php" 2>&1 | ForEach-Object { "$_" } | Out-Null
+$ErrorActionPreference = $prevEAP
 
 # T36: Expiry notification created
 $expNotif = DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$memId AND type='request.expired' AND related_id=$expReqId;"

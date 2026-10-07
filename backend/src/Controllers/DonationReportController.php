@@ -98,7 +98,9 @@ final class DonationReportController
 
     private function decide(array $params, bool $confirm): void
     {
-        $actor = AuthMiddleware::requireActiveUser('officer.reports.decide');
+        // Defense in depth: the service re-enforces officer/admin + chapter
+        // scope, but the controller must not depend on that alone.
+        $actor = AuthMiddleware::requireRoles(['officer', 'admin'], 'officer.reports.decide');
 
         try {
             $result = (new \BloodMatch\Services\DonationService())->decide(

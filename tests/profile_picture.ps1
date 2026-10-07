@@ -67,6 +67,18 @@ function DbQuery($sql) {
     (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
 }
 
+# Mandatory email verification (login gate): complete the registration
+# claim journey via the captured OTP email before signing in.
+function Confirm-EmailClaim($session, $csrf, $email, $token) {
+    $f = Get-ChildItem -Path 'logs/mail-capture' -Filter '*.eml' |
+        Where-Object { $_.Name -match [regex]::Escape($email) } |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($null -eq $f) { throw "no captured OTP email for $email" }
+    $code = ([regex]::Match((Get-Content $f.FullName -Raw), '(?m)^(\d{6})$')).Groups[1].Value
+    $r = PostJson $session '/api/auth/email-otp/verify' @{ verification_token = $token; code = $code } $csrf
+    if ($r.status -ne 200) { throw "claim verify failed for $email ($($r.status))" }
+}
+
 Write-Host "== Profile picture verification =="
 
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) "bm-avatar-test"
@@ -90,8 +102,12 @@ $r = PostJson $s '/api/register' @{
     chapter_id = 1; date_of_birth = '2000-05-10'; blood_type = 'O+'; privacy_acknowledged = $true
 } $csrf
 $uid = $r.body.data.user.id
+Confirm-EmailClaim $s $csrf $email $r.body.data.email_otp.verification_token
 $r = PostJson $s '/api/login' @{ email = $email; password = 'Str0ngPass1' } $csrf
 if ($r.status -eq 200 -and $null -eq $r.body.data.user.profile_picture_url) { Ok 'P01 login returns null profile_picture_url when none' } else { Bad 'P01' "got $($r.status)" }
+# Server rotates CSRF at login: adopt the fresh token for later uploads.
+$csrf = $r.body.data.csrf_token
+if ([string]::IsNullOrEmpty($csrf)) { $csrf = Get-Csrf $s }
 $r = GetReq $s '/api/auth/me'
 if ($r.status -eq 200 -and $null -eq $r.body.data.user.profile_picture_url) { Ok 'P02 /auth/me returns null profile_picture_url when none' } else { Bad 'P02' "got $($r.status)" }
 $r = GetReq $s '/api/profile/picture'
@@ -137,10 +153,11 @@ if ($good2.success -eq $true -and $files2 -ne $files1 -and $files2 -match '^[0-9
 $sB = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $csrfB = Get-Csrf $sB
 $emailB = "ppicb$(Get-Random)@test.local"
-PostJson $sB '/api/register' @{
+$regB = PostJson $sB '/api/register' @{
     full_name = 'Pic Other'; email = $emailB; password = 'Str0ngPass1';
     chapter_id = 1; date_of_birth = '1999-01-01'; privacy_acknowledged = $true
-} $csrfB | Out-Null
+} $csrfB
+Confirm-EmailClaim $sB $csrfB $emailB $regB.body.data.email_otp.verification_token
 PostJson $sB '/api/login' @{ email = $emailB; password = 'Str0ngPass1' } $csrfB | Out-Null
 $r = GetReq $sB '/api/profile/picture'
 if ($r.status -eq 404) { Ok 'P12 other user without picture gets 404 (no cross-user access)' } else { Bad 'P12' "got $($r.status)" }

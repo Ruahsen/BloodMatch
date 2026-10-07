@@ -51,14 +51,87 @@ final class BloodRequestRepository
         return $row === false ? null : $row;
     }
 
-    public function listByRequester(int $requesterId): array
+    public function findByIdForUpdate(int $id): ?array
     {
+        $stmt = Database::pdo()->prepare('SELECT ' . self::SAFE_COLUMNS . ' FROM blood_requests br' . self::LOCATION_JOIN . ' WHERE br.id = ? LIMIT 1 FOR UPDATE');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * Feed candidates: OPEN requests whose requester account is still active.
+     * SQL does FILTERING ONLY (status, requester activity, optional
+     * blood/urgency/chapter predicates). Ranking happens in PHP
+     * (RequestFeedService) via the existing compatibility/geo/eligibility
+     * services so no business rule is duplicated in SQL.
+     *
+     * @return array<int, array>
+     */
+    public function listOpenFeedCandidates(?string $bloodType, ?string $urgency, ?int $chapterId, ?int $matchedDonorId = null, array $matchStatuses = []): array
+    {
+        $where = "br.status = 'OPEN' AND req.account_status = 'active'";
+        $params = [];
+
+        if ($matchedDonorId !== null && $matchStatuses !== []) {
+            // Match-tab scope: only requests carrying one of the viewer's own
+            // qualifying match relationships. Single subquery — no N+1.
+            $ph = implode(',', array_fill(0, count($matchStatuses), '?'));
+            $where .= " AND br.id IN (SELECT m.request_id FROM matches m WHERE m.donor_id = ? AND m.status IN ($ph))";
+            $params[] = $matchedDonorId;
+            foreach ($matchStatuses as $st) {
+                $params[] = $st;
+            }
+        }
+        if ($bloodType !== null) {
+            $where .= ' AND br.required_blood_type = ?';
+            $params[] = $bloodType;
+        }
+        if ($urgency !== null) {
+            $where .= ' AND br.urgency = ?';
+            $params[] = $urgency;
+        }
+        if ($chapterId !== null) {
+            $where .= ' AND br.request_chapter_id = ?';
+            $params[] = $chapterId;
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'SELECT ' . self::SAFE_COLUMNS . ', ch.name AS chapter_name' .
+            ' FROM blood_requests br' . self::LOCATION_JOIN .
+            ' JOIN users req ON req.id = br.requester_id' .
+            ' LEFT JOIN chapters ch ON ch.id = br.request_chapter_id' .
+            " WHERE {$where} ORDER BY br.id DESC"
+        );
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Paginated requester listing (replaces the old unexplained hard cap):
+     * total metadata lets the UI page through the full history.
+     *
+     * @return array{requests:array, total:int}
+     */
+    public function listByRequester(int $requesterId, int $page = 1, int $pageSize = 20): array
+    {
+        $page = max(1, $page);
+        $pageSize = min(100, max(1, $pageSize));
+        $offset = ($page - 1) * $pageSize;
+
+        $countStmt = Database::pdo()->prepare(
+            'SELECT COUNT(*) FROM blood_requests br WHERE br.requester_id = ?'
+        );
+        $countStmt->execute([$requesterId]);
+        $total = (int) $countStmt->fetchColumn();
+
         $stmt = Database::pdo()->prepare(
             'SELECT ' . self::SAFE_COLUMNS . ' FROM blood_requests br' . self::LOCATION_JOIN . '
-             WHERE br.requester_id = ? ORDER BY br.id DESC LIMIT 100'
+             WHERE br.requester_id = ? ORDER BY br.id DESC
+             LIMIT ' . (int) $pageSize . ' OFFSET ' . (int) $offset
         );
         $stmt->execute([$requesterId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return ['requests' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total];
     }
 
     public function updateFields(int $id, array $fields): void
@@ -109,12 +182,21 @@ final class BloodRequestRepository
         $stmt->execute($params);
     }
 
+    /**
+     * Claim overdue OPEN requests for expiry. Deterministic order
+     * (needed_datetime, id) so batches are stable; inclusive deadline
+     * (needed_datetime <= now) so exact-deadline requests expire on time.
+     * Returns only rows stamped by THIS call, so concurrent workers never
+     * process each other's claims (notification dedup additionally guards
+     * the same-second edge).
+     */
     public function expireDueBatch(string $nowUtc, int $limit = 500): array
     {
         $stmt = Database::pdo()->prepare(
             "UPDATE blood_requests
              SET status = 'EXPIRED', expired_at = ?
-             WHERE status = 'OPEN' AND needed_datetime < ?
+             WHERE status = 'OPEN' AND needed_datetime <= ?
+             ORDER BY needed_datetime ASC, id ASC
              LIMIT " . (int) $limit
         );
         $stmt->execute([$nowUtc, $nowUtc]);

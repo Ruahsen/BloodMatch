@@ -11,6 +11,13 @@ use BloodMatch\Utils\Response;
 
 final class AuthMiddleware
 {
+    /**
+     * Idle session lifetime (seconds). Browser-session cookies carry no
+     * server-side expiry, so activity is tracked per request; conservative
+     * operational default, documented in docs/api.md security notes.
+     */
+    public const IDLE_TIMEOUT_SECONDS = 43200;
+
     public static function requireAuth(string $endpoint = ''): void
     {
         Session::start();
@@ -22,6 +29,19 @@ final class AuthMiddleware
             Response::error('Authentication required.', 401);
             exit;
         }
+
+        // Idle timeout: a stolen cookie is only useful inside the window.
+        $lastActivity = $_SESSION['last_activity'] ?? null;
+        if (!is_int($lastActivity) || (time() - $lastActivity) > self::IDLE_TIMEOUT_SECONDS) {
+            AuditLogger::log((int) $_SESSION['user_id'], 'auth.session_expired', 'user', (string) (int) $_SESSION['user_id'], [
+                'endpoint' => $endpoint,
+                'reason' => 'idle_timeout',
+            ]);
+            Session::destroy();
+            Response::error('Session expired. Please log in again.', 401);
+            exit;
+        }
+        $_SESSION['last_activity'] = time();
     }
 
     public static function requireActiveUser(string $endpoint = ''): array
@@ -39,6 +59,21 @@ final class AuthMiddleware
                 (string) $userId,
                 ['endpoint' => $endpoint, 'reason' => 'inactive_or_missing_account']
             );
+            Response::error('Forbidden.', 403);
+            exit;
+        }
+
+        // Server-side revocation: password resets, deactivations, and
+        // role/chapter changes bump users.session_version; cookies carrying
+        // an older epoch stop here even though PHP file sessions cannot
+        // delete a peer session directly.
+        $sessionVersion = (int) ($_SESSION['session_version'] ?? 1);
+        $currentVersion = (int) ($user['session_version'] ?? 1);
+        if ($sessionVersion !== $currentVersion) {
+            AuditLogger::log((int) $user['id'], 'authz.denied', 'user', (string) $userId, [
+                'endpoint' => $endpoint,
+                'reason' => 'session_revoked',
+            ]);
             Response::error('Forbidden.', 403);
             exit;
         }

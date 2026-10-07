@@ -33,7 +33,9 @@ final class AgeEligibilityService
             ];
         }
 
-        $today = new DateTimeImmutable('today');
+        // UTC date boundary, consistent with AuthService::nowUtc() timestamps
+        // stored for date_of_birth comparisons elsewhere in the system.
+        $today = new DateTimeImmutable('today', new \DateTimeZone('UTC'));
         $age = (int) $today->diff($birth)->y;
         $hadBirthday = ($today->format('m-d') >= $birth->format('m-d'));
         if (!$hadBirthday && $age > 0) {

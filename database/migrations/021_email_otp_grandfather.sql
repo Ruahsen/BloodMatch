@@ -1,0 +1,13 @@
+-- Migration 021: grandfather pre-mandatory-OTP accounts for the login gate.
+--
+-- POST /api/login rejects accounts with email_verified_at IS NULL. Every
+-- account created before email verification became a login prerequisite
+-- (including admin/officer/member/test fixtures) still has NULL, so
+-- without this backfill the gate would lock out legitimate existing
+-- accounts. Mark them with their creation timestamp.
+--
+-- Honesty note: this value is a GRANDFATHER MARKER, not proof that the
+-- address was verified. Only EmailOtpService::verifyOtp / verifyWithToken
+-- ever establish real verification for accounts created afterwards (which
+-- start NULL and must verify before login).
+UPDATE users SET email_verified_at = created_at WHERE email_verified_at IS NULL;

@@ -9,7 +9,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
-  const [notice] = useState(location.state?.registered ? 'Account created successfully. Please sign in.' : null)
+  const [notice] = useState(
+    location.state?.emailVerified
+      ? 'Email verified. Registration complete — please sign in to continue.'
+      : location.state?.registered
+        ? 'Account created successfully. Please sign in.'
+        : null
+  )
   const [submitting, setSubmitting] = useState(false)
 
   const onSubmit = async (e) => {
@@ -18,8 +24,27 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       await login(email, password)
-      navigate('/')
+      navigate('/feed')
     } catch (err) {
+      // Backend-enforced email gate: correct credentials but unverified
+      // address. The 403 carries a fresh single-purpose claim token —
+      // keep it (tab-scoped, never in a URL) and route to verification.
+      if (err.status === 403 && err.details?.code === 'email_verification_required') {
+        if (err.details.verification_token) {
+          try {
+            sessionStorage.setItem('bloodmatch_email_otp_claim', err.details.verification_token)
+          } catch {
+            // Storage unavailable: the page still explains the next step.
+          }
+        }
+        navigate('/verify-email', {
+          state: {
+            maskedEmail: err.details?.masked_email || null,
+            fromBlockedLogin: true
+          }
+        })
+        return
+      }
       setError(err.message || 'Invalid email or password.')
     } finally {
       setSubmitting(false)

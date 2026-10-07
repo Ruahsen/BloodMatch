@@ -7,6 +7,7 @@ import { useTheme } from './context/ThemeContext'
 import { clearCsrf } from './services/apiClient'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import EmailVerificationPage from './pages/EmailVerificationPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
@@ -15,6 +16,7 @@ import OfficerConfirmationsPage from './pages/OfficerConfirmationsPage'
 import RequestsPage from './pages/RequestsPage'
 import RequestFormPage from './pages/RequestFormPage'
 import MatchesPage from './pages/MatchesPage'
+import FeedPage from './pages/FeedPage'
 import NotificationFlyout from './components/NotificationFlyout'
 import Footer from './components/Footer'
 import NotificationsPage from './pages/NotificationsPage'
@@ -53,7 +55,8 @@ function HomePage() {
         <div className="hero-actions">
           {user ? (
             <>
-              <Link to="/requests/new" className="btn btn-lg">Create Blood Request</Link>
+              <Link to="/feed" className="btn btn-lg">Go to Blood Request Feed</Link>
+              <Link to="/requests/new" className="btn btn-secondary">Create Blood Request</Link>
               <Link to="/profile" className="btn btn-secondary">Manage Profile</Link>
               {user.role === 'officer' && <Link to="/officer/dashboard" className="btn btn-secondary">Officer Dashboard</Link>}
               {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin Dashboard</Link>}
@@ -98,13 +101,6 @@ function HomePage() {
         </section>
       </div>
 
-      {/* Medical disclaimer: quieter */}
-      <section className="medical-disclaimer" role="note" aria-label="Medical Disclaimer">
-        <div aria-hidden="true" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-subtle)', paddingTop: '2px' }}>Note</div>
-        <div>
-          <strong>Clinical confirmation required.</strong> Suggestions are advisory and do not replace crossmatching, infectious screening or physician review at the facility.
-        </div>
-      </section>
     </div>
   )
 }
@@ -156,18 +152,31 @@ export default function App() {
       return undefined
     }
     let active = true
+    let t = null
     const tick = () =>
       api
         .get('/api/notifications/unread-count')
         .then((d) => {
-          if (active) setUnread(d.unread_count)
+          if (active && typeof d?.unread_count === 'number') setUnread(d.unread_count)
         })
-        .catch(() => {})
+        .catch((err) => {
+          // A revoked or deactivated session must not poll forever: stop
+          // the loop instead of hammering a dead session with 401/403s.
+          if (active && (err?.status === 401 || err?.status === 403)) {
+            setUnread(0)
+            if (t) clearInterval(t)
+          }
+        })
     tick()
-    const t = setInterval(tick, 30000)
+    t = setInterval(tick, 30000)
+    // Cross-page badge sync: notification actions elsewhere refresh the
+    // navbar count immediately instead of waiting for the next poll.
+    const onExternal = () => tick()
+    window.addEventListener('bloodmatch:unread-changed', onExternal)
     return () => {
       active = false
-      clearInterval(t)
+      if (t) clearInterval(t)
+      window.removeEventListener('bloodmatch:unread-changed', onExternal)
     }
   }, [user])
 
@@ -197,15 +206,11 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-inner">
           <Link to="/" className="brand" aria-label="BloodMatch Home">
-            <svg className="brand-mark" width="18" height="18" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" focusable="false">
-              <path d="M6 6 H13 V12 L9 16 L13 20 V26 H6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
-              <path d="M26 6 H19 V13.5 L16.5 16 L19 18.5 V26 H26 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
-            </svg>
             <span>BloodMatch</span>
           </Link>
 
           <nav className="nav nav--desktop" aria-label="Main Navigation">
-            <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined}>Home</Link>
+            <Link to={user ? '/feed' : '/'} className={`nav-link ${isActive(user ? '/feed' : '/') ? 'active' : ''}`} aria-current={isActive(user ? '/feed' : '/') ? 'page' : undefined}>Home</Link>
             {user ? (
               <>
                 <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined}>Profile</Link>
@@ -255,7 +260,7 @@ export default function App() {
             <div className="topbar-utilities">
               {user && (
                 <span className="notif-mobile">
-                  <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
+                  <NotificationFlyout unread={unread} setUnread={setUnread} variant="mobile" />
                 </span>
               )}
               <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
@@ -287,7 +292,7 @@ export default function App() {
         {mobileOpen && (
           <div id="mobile-panel" className="mobile-panel" role="region" aria-label="Mobile navigation">
             <nav className="mobile-nav" aria-label="Mobile navigation">
-              <Link to="/" className={`mobile-link ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Home</Link>
+              <Link to={user ? '/feed' : '/'} className={`mobile-link ${isActive(user ? '/feed' : '/') ? 'active' : ''}`} aria-current={isActive(user ? '/feed' : '/') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Home</Link>
               {user ? (
                 <>
                   <div className="mobile-section-label">Account</div>
@@ -343,11 +348,16 @@ export default function App() {
         ) : (
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/feed" element={<RequireAuth><FeedPage /></RequireAuth>} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+            {/* Public by design: the registration journey lands here
+                logged-out, authorized by the claim token from registration;
+                signed-in users use their session instead. */}
+            <Route path="/verify-email" element={<EmailVerificationPage />} />
             <Route path="/officer/dashboard" element={<RequireAuth roles={['officer']}><OfficerDashboardPage /></RequireAuth>} />
             <Route path="/admin/dashboard" element={<RequireAuth roles={['admin']}><AdminDashboardPage /></RequireAuth>} />
             <Route path="/demand-map" element={<RequireAuth roles={['officer', 'admin']}><DemandMapPage /></RequireAuth>} />

@@ -51,8 +51,11 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status,              account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at,
+             donor_availability, date_of_birth, email_verified_at)
+             # Fixtures bypass /api/register by construction, so they are
+             # grandfather-equivalent (migration 021): verified email marker.
+             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15', UTC_TIMESTAMP());"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -61,6 +64,10 @@ function Login($email) {
     $csrf = Get-Csrf $s
     $r = Invoke-Json $s 'Post' '/api/login' @{ email = $email; password = 'Str0ngPass1' } $csrf
     if ($r.status -ne 200) { throw "login failed for $email ($($r.status))" }
+    # Server rotates CSRF at the login privilege boundary: adopt the fresh
+    # token from the login response (falls back to an explicit re-fetch).
+    $csrf = $r.body.data.csrf_token
+    if ([string]::IsNullOrEmpty($csrf)) { $csrf = Get-Csrf $s }
     return @{ s = $s; csrf = $csrf }
 }
 
@@ -92,12 +99,12 @@ $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $reqId = $r.body.data.request.id
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqId/matches" $null $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqId/matches?page=1&page_size=200" $null $reqSess.csrf
 $mD = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$dId" } | Select-Object -First 1
 $mNR = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$dNR" } | Select-Object -First 1
 if ($null -eq $mD -or $null -eq $mNR) { throw "fixture matches missing" }
 
-Invoke-Json $dSess.s 'Post' "/api/matches/$($mD.match_id)/respond" @{} $dSess.csrf | Out-Null
+Invoke-Json $dSess.s 'Post' "/api/matches/$($mD.match_id)/respond" @{ donor_share_consent = $true } $dSess.csrf | Out-Null
 $r = Invoke-Json $dSess.s 'Post' '/api/donation-reports' @{ match_id = $mD.match_id; note = 'Phase nine confirmation.' } $dSess.csrf
 $repD = $r.body.data.report.id
 $r = Invoke-Json $off.s 'Post' "/api/officer/donation-reports/$repD/confirm" @{} $off.csrf
@@ -122,7 +129,7 @@ $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $probeReq = $r.body.data.request.id
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$probeReq/matches" $null $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$probeReq/matches?page=1&page_size=200" $null $reqSess.csrf
 $foundBlocked = @($r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$dId" }).Count
 if ($r.status -ne 200) { Bad 'T4' "GET failed $($r.status): $($r.raw)" }
 elseif ($foundBlocked -eq 0) { Ok 'T4 standby-blocked donor excluded from pool' } else { Bad 'T4' 'blocked donor present' }
@@ -145,7 +152,7 @@ if ($w.blocked -eq $true -and $w.which -eq 'cooldown') { Ok 'T7 43h: standby ove
 $r = Invoke-Json $dSess.s 'Post' '/api/profile/donor-availability' @{ availability = 'available' } $dSess.csrf
 if ($r.status -eq 409 -and $r.body.error.details.availability_window.which -eq 'cooldown') { Ok 'T8 cooldown blocks toggle too' } else { Bad 'T8' "got $($r.status)" }
 $r = Invoke-Json $off.s 'Post' "/api/officer/requests/$probeReq/re-match" @{} $off.csrf
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$probeReq/matches" $null $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$probeReq/matches?page=1&page_size=200" $null $reqSess.csrf
 $stillOut = @($r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$dId" }).Count
 if ($stillOut -eq 0) { Ok 'T9 cooldown-blocked donor excluded from pool' } else { Bad 'T9' 'present' }
 
@@ -181,7 +188,7 @@ if ($w.blocked -eq $false -and $storedAfter -eq 'standby' -and $storedBefore -eq
 
 $r = Invoke-Json $off.s 'Post' "/api/officer/requests/$probeReq/re-match" @{} $off.csrf
 if ($r.status -ne 200) { Bad 'T12a rematch call' "status=$($r.status) raw=$($r.raw)" }
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$probeReq/matches" $null $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$probeReq/matches?page=1&page_size=200" $null $reqSess.csrf
 if ($r.status -ne 200) { Bad 'T12b GET' "status=$($r.status) raw=$($r.raw)" }
 $backIn = @($r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$dId" }).Count
 if ($backIn -ge 1) { Ok 'T12 expired-windows standby donor re-enters pool via read model' } else { Bad 'T12' "absent; count=$(@($r.body.data.matches).Count)" }

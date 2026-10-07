@@ -49,14 +49,35 @@ export default function RegisterPage() {
     setPrivacyError(null)
     setSubmitting(true)
     try {
-      await api.post('/api/register', {
+      const data = await api.post('/api/register', {
         ...form,
         chapter_id: Number(form.chapter_id),
         blood_type: form.blood_type || null,
         phone: form.phone || null,
         privacy_acknowledged: true
       })
-      navigate('/login', { state: { registered: true } })
+      // Registration issues the email OTP automatically and returns a
+      // single-purpose claim token: continue straight to verification.
+      // The token lives in sessionStorage (tab-scoped, never in a URL).
+      const otp = data?.email_otp
+      if (otp?.verification_token) {
+        try {
+          sessionStorage.setItem('bloodmatch_email_otp_claim', otp.verification_token)
+        } catch {
+          // Storage unavailable (private mode): the page still works when
+          // reached directly after this navigation via location state.
+        }
+        navigate('/verify-email', {
+          state: {
+            registered: true,
+            maskedEmail: otp.masked_email || null,
+            delivered: otp.delivered !== false,
+            expiresIn: otp.expires_in_seconds || 600
+          }
+        })
+      } else {
+        navigate('/login', { state: { registered: true } })
+      }
     } catch (err) {
       if (err.details && Object.keys(err.details).length > 0) {
         setErrors(err.details)

@@ -104,7 +104,7 @@ export default function OfficerDashboardPage() {
           <div>
             <span className="metric-label">Active OPEN Requests</span>
             <div className="metric-value" style={{ margin: 'var(--space-1) 0' }}>
-              {metrics.open_requests || 0}
+              {metrics.active_open_requests || 0}
             </div>
             <p className="metric-sub">
               {metrics.total_units_needed || 0} total units currently needed
@@ -127,9 +127,10 @@ export default function OfficerDashboardPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-2)' }}>
             {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bt) => {
-              const reqCount = demandByBt[bt]?.requests_count || 0
-              const unitsNeeded = demandByBt[bt]?.units_needed || 0
-              const hasDemand = reqCount > 0
+              // Backend contract: demand_by_blood_type[bt] = units needed
+              // for currently OPEN requests (see docs/api.md).
+              const unitsNeeded = demandByBt[bt] || 0
+              const hasDemand = unitsNeeded > 0
 
               return (
                 <div
@@ -144,7 +145,7 @@ export default function OfficerDashboardPage() {
                 >
                   <div style={{ fontWeight: 800, fontSize: '1rem' }}>{bt}</div>
                     <div style={{ fontSize: '0.75rem', color: hasDemand ? 'var(--color-text)' : 'var(--color-text-subtle)' }}>
-                    {reqCount > 0 ? `${reqCount} req (${unitsNeeded}u)` : '–'}
+                    {hasDemand ? `${unitsNeeded}u needed` : '–'}
                   </div>
                 </div>
               )

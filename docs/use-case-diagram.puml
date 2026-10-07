@@ -56,6 +56,16 @@ package "BloodMatch — DeMolay Bataan Blood Donor Matching Platform" {
     usecase "Respond to Match" as UC_RespondToMatch
   }
 
+  ' ---- HOME FEED & MATCH COMMITMENTS ----
+  package "Home Feed & Match Commitments" {
+    usecase "Browse Home Feed" as UC_BrowseFeed
+    usecase "Accept Donor" as UC_AcceptDonor
+    usecase "Withdraw Acceptance" as UC_UnacceptDonor
+    usecase "Withdraw Response" as UC_WithdrawResponse
+    usecase "Manage Contact Consent" as UC_ManageConsent
+    usecase "Exchange Contact Details" as UC_ExchangeContact
+  }
+
   ' ---- DONATION ----
   package "Donation" {
     usecase "Submit Donation Report" as UC_SubmitDonationReport
@@ -120,6 +130,12 @@ Member --> UC_EditRequest
 Member --> UC_CancelRequest
 Member --> UC_ViewMatches
 Member --> UC_RespondToMatch
+Member --> UC_BrowseFeed
+Member --> UC_AcceptDonor
+Member --> UC_UnacceptDonor
+Member --> UC_WithdrawResponse
+Member --> UC_ManageConsent
+Member --> UC_ExchangeContact
 Member --> UC_SubmitDonationReport
 Member --> UC_ViewNotifications
 Member --> UC_MarkRead
@@ -206,6 +222,17 @@ UC_FindDonors ..> UC_CheckEligibility : <<include>>
 UC_FindDonors ..> UC_RecordAudit : <<include>>
 UC_RerunMatching ..> UC_FindDonors : <<include>>
 UC_RespondToMatch ..> UC_RecordAudit : <<include>>
+
+' Home feed & commitment workflow
+UC_BrowseFeed ..> UC_RecordAudit : <<include>>
+UC_AcceptDonor ..> UC_RecordAudit : <<include>>
+UC_AcceptDonor ..> UC_ReceiveNotifications : <<include>>
+UC_UnacceptDonor ..> UC_RecordAudit : <<include>>
+UC_UnacceptDonor ..> UC_ReceiveNotifications : <<include>>
+UC_WithdrawResponse ..> UC_RecordAudit : <<include>>
+UC_WithdrawResponse ..> UC_ReceiveNotifications : <<include>>
+UC_ManageConsent ..> UC_RecordAudit : <<include>>
+UC_ExchangeContact ..> UC_RecordAudit : <<include>>
 
 ' Donation workflow
 UC_SubmitDonationReport ..> UC_RecordAudit : <<include>>

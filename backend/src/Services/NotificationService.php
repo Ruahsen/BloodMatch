@@ -12,6 +12,14 @@ final class NotificationService
 
     private const MAX_EMAILS_PER_USER_PER_HOUR = 5;
     private const MAX_EMAIL_RECIPIENTS_PER_BATCH = 500;
+    /**
+     * Critical-specific throttle: a donor receives at most this many
+     * critical match emails per request per hour. Critical keeps priority
+     * (higher than the normal 5/hour budget), but repeated material edits
+     * on one critical request cannot flood a donor. In-app notifications
+     * are always still created; only the email leg is throttled.
+     */
+    private const MAX_CRITICAL_EMAILS_PER_REQUEST_PER_HOUR = 3;
 
     public static function dedupMatch(int $requestId, int $donorId): string
     {
@@ -40,6 +48,26 @@ final class NotificationService
         return "donation:{$reportId}:{$decision}";
     }
 
+    /**
+     * One-time match lifecycle events (responded/accepted/withdrawn): stable
+     * key per match so duplicate submissions stay idempotent (INSERT IGNORE).
+     */
+    public static function dedupMatchEvent(int $matchId, string $event): string
+    {
+        return "match-event:{$matchId}:{$event}";
+    }
+
+    /**
+     * Repeatable match lifecycle events (unaccepted/consent_revoked): the
+     * audit id suffix keeps each occurrence notifiable, mirroring the
+     * verification/account dedup pattern.
+     */
+    public static function dedupMatchOccurrence(int $matchId, string $event, ?int $auditId): string
+    {
+        $suffix = $auditId !== null ? (string) $auditId : uniqid('', true);
+        return "match-event:{$matchId}:{$event}:{$suffix}";
+    }
+
     public static function notify(
         int $userId,
         string $type,
@@ -65,7 +93,16 @@ final class NotificationService
 
         $emailPriority = $options['email'] ?? self::EMAIL_NONE;
         if ($emailPriority !== self::EMAIL_NONE) {
-            self::attemptEmail($userId, $id, $title, $body, $emailPriority);
+            self::attemptEmail(
+                $userId,
+                $id,
+                $type,
+                $title,
+                $body,
+                $emailPriority,
+                $options['related_type'] ?? null,
+                isset($options['related_id']) ? (int) $options['related_id'] : null
+            );
         }
 
         return $id;
@@ -100,6 +137,11 @@ final class NotificationService
             (string) $request['facility_name']
         );
 
+        // Intentional outreach bound: at most 500 donors are notified per
+        // generation as an anti-flood measure. Donors beyond the bound are
+        // still persisted as POTENTIAL candidates by MatchService (visible
+        // to the requester, counted in pool_size) and become notifiable on
+        // later generations; nothing is silently dropped from matching.
         $notifiedDonorIds = [];
         foreach (array_slice($eligibleDonorIds, 0, self::MAX_EMAIL_RECIPIENTS_PER_BATCH) as $donorId) {
             $id = self::notify(
@@ -123,12 +165,26 @@ final class NotificationService
         return $notifiedDonorIds;
     }
 
+    private static function relatedRequestOf(int $notificationId): ?int
+    {
+        $stmt = \BloodMatch\Config\Database::pdo()->prepare(
+            "SELECT related_id FROM notifications
+              WHERE id = ? AND related_type = 'blood_request' LIMIT 1"
+        );
+        $stmt->execute([$notificationId]);
+        $id = $stmt->fetchColumn();
+        return $id === false || $id === null ? null : (int) $id;
+    }
+
     private static function attemptEmail(
         int $userId,
         int $notificationId,
-        string $subject,
+        string $type,
+        string $title,
         string $body,
-        string $priority
+        string $priority,
+        ?string $relatedType = null,
+        ?int $relatedId = null
     ): void {
         if (!Mailer::isConfigured()) {
             return;
@@ -140,6 +196,12 @@ final class NotificationService
             if ($repo->emailCountInLastHour($userId, AuthService::nowUtc()) >= self::MAX_EMAILS_PER_USER_PER_HOUR) {
                 return;
             }
+        } else {
+            $related = self::relatedRequestOf($notificationId);
+            if ($related !== null
+                && $repo->criticalEmailCountForRequest($userId, $related, AuthService::nowUtc()) >= self::MAX_CRITICAL_EMAILS_PER_REQUEST_PER_HOUR) {
+                return;
+            }
         }
 
         $user = (new \BloodMatch\Repositories\UserRepository())->findById($userId);
@@ -147,11 +209,13 @@ final class NotificationService
             return;
         }
 
-        $sent = Mailer::send(
-            $user['email'],
-            '[BloodMatch] ' . $subject,
-            '<p>' . htmlspecialchars($body, ENT_QUOTES, 'UTF-8') . '</p>'
-        );
+        // The email mirrors the in-app notification: same title/body the
+        // recipient already received, plus branding, timestamp, deep link,
+        // and footer from the shared template. No other data is pulled in.
+        $now = AuthService::nowUtc();
+        $email = NotificationEmailTemplate::render($type, $title, $body, $relatedType, $relatedId, $now);
+
+        $sent = Mailer::send($user['email'], $email['subject'], $email['html'], $email['text']);
 
         if ($sent) {
             $repo->markEmailed($notificationId, AuthService::nowUtc());

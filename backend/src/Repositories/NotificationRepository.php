@@ -50,6 +50,25 @@ final class NotificationRepository
         return (int) $stmt->fetchColumn();
     }
 
+    /**
+     * Critical emails already sent to this donor for this request in the
+     * last hour. Backs the critical-specific throttle: critical outreach
+     * keeps priority over normal mail, but repeated material edits must
+     * not turn one request into an unbounded flood channel.
+     */
+    public function criticalEmailCountForRequest(int $userId, int $requestId, string $nowUtc): int
+    {
+        $cutoff = gmdate('Y-m-d H:i:s', strtotime($nowUtc . ' UTC') - 3600);
+        $stmt = Database::pdo()->prepare(
+            "SELECT COUNT(*) FROM notifications
+             WHERE user_id = ? AND type = 'match.new'
+               AND related_type = 'blood_request' AND related_id = ?
+               AND emailed_at IS NOT NULL AND created_at > ?"
+        );
+        $stmt->execute([$userId, $requestId, $cutoff]);
+        return (int) $stmt->fetchColumn();
+    }
+
     public function listForUser(int $userId, int $page, int $pageSize, ?string $typeFilter = null, ?string $readFilter = null): array
     {
         $offset = max(0, ($page - 1) * $pageSize);

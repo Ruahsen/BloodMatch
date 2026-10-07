@@ -52,8 +52,11 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status,              account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at,
+             donor_availability, date_of_birth, email_verified_at)
+             # Fixtures bypass /api/register by construction, so they are
+             # grandfather-equivalent (migration 021): verified email marker.
+             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15', UTC_TIMESTAMP());"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -62,6 +65,10 @@ function Login($email) {
     $csrf = Get-Csrf $s
     $r = Invoke-Json $s 'Post' '/api/login' @{ email = $email; password = 'Str0ngPass1' } $csrf
     if ($r.status -ne 200) { throw "login failed for $email ($($r.status))" }
+    # Server rotates CSRF at the login privilege boundary: adopt the fresh
+    # token from the login response (falls back to an explicit re-fetch).
+    $csrf = $r.body.data.csrf_token
+    if ([string]::IsNullOrEmpty($csrf)) { $csrf = Get-Csrf $s }
     return @{ s = $s; csrf = $csrf }
 }
 
@@ -129,8 +136,8 @@ $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
 if ($r.status -eq 201 -and $r.body.data.matching.generation -eq 1) { Ok 'T1 creation auto-generates generation 1' } else { Bad 'T1' "status=$($r.status) match=$($r.body.data.matching | ConvertTo-Json -Compress)" }
 $reqRowId = $r.body.data.request.id
 
-# --- T2 pool composition & privacy ---
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches" $null $reqSess.csrf
+# --- T2 pool composition & privacy (explicit full page: assertions cover the whole pool) ---
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches?page=1&page_size=200" $null $reqSess.csrf
 $ids = @($r.body.data.matches | ForEach-Object { $_.donor_reference })
 $has = { param($x) $ids -contains "donor-$x" }
 if (
@@ -174,11 +181,11 @@ if ($r.status -eq 200 -and $dbE -eq 'Y|available') { Ok 'T8b verified member enr
 
 # --- T9 material change bumps generation; manual rematch does not ---
 $r = Invoke-Json $reqSess.s 'Put' "/api/requests/$reqRowId" @{ urgency = 'critical' } $reqSess.csrf
-$r2 = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches" $null $reqSess.csrf
+$r2 = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches?page=1&page_size=200" $null $reqSess.csrf
 $genAfterMaterial = ($r2.body.data.matches | Select-Object -First 1).generation
 if ($genAfterMaterial -ge 2) { Ok "T9 material change bumped generation -> $genAfterMaterial" } else { Bad 'T9' "gen=$genAfterMaterial" }
 $r = Invoke-Json $off.s 'Post' "/api/officer/requests/$reqRowId/re-match" @{} $off.csrf
-$r3 = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches" $null $reqSess.csrf
+$r3 = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches?page=1&page_size=200" $null $reqSess.csrf
 $genAfterRematch = ($r3.body.data.matches | Select-Object -First 1).generation
 if ($r.status -eq 200 -and $genAfterRematch -eq $genAfterMaterial) { Ok 'T10 non-material manual re-match keeps generation' } else { Bad 'T10' "gen=$genAfterRematch expected $genAfterMaterial" }
 $rows = DbQuery "SELECT COUNT(*) FROM matches WHERE request_id=$reqRowId AND donor_id=$dOk;"
@@ -187,7 +194,7 @@ if ([int]$rows -eq 1) { Ok 'T11 unique (request,donor): single persistent row' }
 # --- T12 newly enrolled donor appears on next run without bumping gen ---
 $beforeCnt = @($r3.body.data.matches).Count
 $r = Invoke-Json $off.s 'Post' "/api/officer/requests/$reqRowId/re-match" @{} $off.csrf
-$r4 = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches" $null $reqSess.csrf
+$r4 = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches?page=1&page_size=200" $null $reqSess.csrf
 $foundNew = @($r4.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$verEnrollId" }).Count
 if ($foundNew -eq 1) { Ok 'T13 newly enrolled donor inserted on re-match' } else { Bad 'T13' 'missing from refreshed set' }
 $genStill = ($r4.body.data.matches | Select-Object -First 1).generation

@@ -60,7 +60,14 @@ final class ProfilePictureController
             ? $actor['profile_picture']
             : null;
 
-        $users->setProfilePicture((int) $actor['id'], (string) $stored['stored_name']);
+        try {
+            $users->setProfilePicture((int) $actor['id'], (string) $stored['stored_name']);
+        } catch (\Throwable $e) {
+            // No orphan files: remove the stored bytes when the DB row
+            // cannot be updated.
+            @unlink(ProfilePictureStorageService::pathFor((string) $stored['stored_name']));
+            throw $e;
+        }
 
         if ($previous !== null && $previous !== '') {
             ProfilePictureStorageService::delete($previous);
@@ -110,7 +117,8 @@ final class ProfilePictureController
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . (string) filesize($path));
         header('Content-Disposition: inline; filename="profile-picture"');
-        header_remove('Cache-Control');
+        header('Cache-Control: no-store, max-age=0');
+        header('Pragma: no-cache');
         readfile($path);
         exit;
     }

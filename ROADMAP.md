@@ -9,13 +9,14 @@
 
 ### 0.1 Functional & Security Implementation State
 
-Per the verified Repository Audits and Master Regression Suite (`tests/run_all.ps1`, current baseline 2026-09-24 in `docs/test-log-location.md`):
+Per the verified Repository Audits and Master Regression Suite (`tests/run_all.ps1`, current baseline in `docs/test-log-remediation.md`):
 - **Phases 1–12:** Complete and end-to-end verified.
 - **Phase 15 (Frontend Integration, Accessibility & Design Polish):** Complete and end-to-end verified; clean Vite production build.
 - **Phase 16 (Security & Performance Hardening):** Complete and end-to-end verified (15/15 security hardening assertions).
 - **Phase 17 (Traceability & Handover):** Complete 2026-08-27 (historical 11/11, 316/316 baseline preserved in `docs/test-log-phase17.md`).
-- **Post-Phase-17 additions (current):** migration 015 profile pictures, migration 016 Bataan location reference system + seed 004, donor-location refresh (`refreshMatchesForDonor`), privacy-notice gates, `tests/location.ps1` (20/20) and `tests/profile_picture.ps1` (P01–P13).
-- **Master Regression Suite (current):** 12 / 12 suites passed (343 assertions green).
+- **Post-Phase-17 additions (current):** migration 015 profile pictures, migration 016 Bataan location reference system + seed 004, donor-location refresh (`refreshMatchesForDonor`), privacy-notice gates, `tests/location.ps1` (20/20) and `tests/profile_picture.ps1` (P01–P13), migration 017 authenticated Home feed + `ACCEPTED`/`WITHDRAWN` match lifecycle + bilateral contact (`tests/feed.ps1` 50/50).
+- **018 remediation hardening pass (2026-10-01, current):** transactional capacity + confirm gates, atomic reset consumption, session-version revocation, owner-only coordinates, `NOT NULL` notification dedup, analytics contract alignment, server pagination for my-requests/matches, validation envelopes, `tests/remediation.ps1` (25/25).
+- **Master Regression Suite (current):** 15 / 15 suites passed (431 assertions green).
 
 | Requirements & Scope | State |
 |---|---|
@@ -371,19 +372,19 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 > **Status:** ✅ **IMPLEMENTED AND VERIFIED** (2026-08-27 — historical baseline; superseded for current totals by Post-Phase-17 additions and `docs/test-log-location.md`)
 > Definitive FR ↔ NFR ↔ Business Rules ↔ Evidence matrix published; zero code changes at the time; historical test baseline 316/316 green (11/11 suites).
-> - **Traceability matrix:** Complete end-to-end mapping of FR-01–FR-20, NFR-01–NFR-17, and Q1–Q25 decisions in `docs/traceability.md` (historical 2026-08-27 revision documented 26 endpoints / 001–014 schema; see current `docs/api.md` / `docs/erd.md` for 001–016).
-> - **API Inventory:** Historical inventory covering 26 endpoints in `docs/api.md` (superseded; current route table has 55 method+path registrations — see `backend/routes/api.php`).
+> - **Traceability matrix:** Complete end-to-end mapping of FR-01–FR-20, documented-constraint coverage (NFR working labels), and Q1–Q25 shorthands in `docs/traceability.md` (historical 2026-08-27 revision documented 26 endpoints / 001–014 schema; see current `docs/api.md` / `docs/erd.md` for 001–018; FR numbering corrected to CONTEXT §9.1 canonical IDs).
+> - **API Inventory:** Historical inventory covering 26 endpoints in `docs/api.md` (superseded; current route table has 62 method+path registrations — see `backend/routes/api.php`).
 > - **Schema & Test logs:** Historical schema snapshot 001–014 in `docs/erd.md`; verification log in `docs/test-log-phase17.md` (preserved as historical record).
 > - **Verification Evidence (historical):** Master regression suite `tests/run_all.ps1` passing 316/316 assertions (100% green) on 2026-08-27; clean Vite production build.
 
 1. **Objective:** Produce the definitive FR ↔ implementation ↔ evidence matrix; update CONTEXT.md §10 statuses honestly.
 2. **Requirements covered:** AGENTS.md #29–33; CONTEXT.md §10 maintenance rule.
 3. **Dependencies:** Phase 16 green.
-4. **Database work:** Capture final schema snapshot into `docs/erd.md` (historical 001–014 snapshot; 015–016 documented post-17).
+4. **Database work:** Capture final schema snapshot into `docs/erd.md` (historical 001–014 snapshot; 015–018 documented post-17).
 5. **Backend/API work:** Documented endpoints in `docs/api.md` (historical 26; current set documented post-17).
 6. **Frontend work:** None (design and accessibility verified).
 7. **Security considerations:** Ensure evidence docs themselves contain no secrets/PII.
-8. **Tests required:** Re-run full suite on clean clone as final proof (historical `tests/run_all.ps1`: 316/316 assertions green; current: 12/12, 343).
+8. **Tests required:** Re-run full suite on clean clone as final proof (historical `tests/run_all.ps1`: 316/316 assertions green; current: 15/15, 431).
 9. **Definition of Done:** `docs/traceability.md` maps every FR-01–FR-20 and NFR-01–NFR-17 to implementing files, endpoints, tables, tests, and verification dates; CONTEXT.md §10 updated.
 
 **Internal order:** (1) matrix draft from phase logs → (2) evidence citation pass → (3) clean-clone re-verification → (4) CONTEXT.md §10 update → (5) owner review.
@@ -399,7 +400,9 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 - **Donor-location refresh**: `MatchService::refreshMatchesForDonor()` wired in `ProfileController.php`; recalculates affected OPEN matches without generation bump, no duplicate notifications, COMPLETED/CLOSED preserved (L17–L20).
 - **Privacy notices**: registration + ID-upload mandatory `privacy_acknowledged` (frontend `PrivacyNoticeModal.jsx` + backend `AuthService` / `DocumentController`); extended assertions in `tests/phase3.ps1` / `tests/phase5.ps1`.
 - **Notification/media updates**: in-navbar `NotificationFlyout.jsx` as current primary UI (page retained as View-all), `GET /api/notifications/unread-count`; theme-persisted B&W UI with `hamburger-react` menu; SVG favicon (`favicon.svg` + `favicon-dark.svg`, referenced in `frontend/index.html`).
-- **Current verification**: `tests/run_all.ps1` 12/12 suites green, 343 assertions (Phase 3: 26, Phase 4: 23, Phase 5: 44, Phase 6: 35, Phase 7: 28, Phase 8: 30, Phase 9: 16, Phase 10: 43, Phase 11: 31, Phase 12: 32, Location: 20/20, Phase 16 security: 15); evidence `docs/test-log-location.md`.
+- **Migration 017 authenticated Home feed + match lifecycle** (`database/migrations/017_match_lifecycle_feed.sql`): `matches.status` += `ACCEPTED`/`WITHDRAWN`, `donor_share_consent`/`requester_share_consent`, index `matches(request_id, status)`; `MatchDecisionService.php` (respond reconciliation incl. request-scoped Respond, accept/unaccept/withdraw/consent/contact with capacity invariant under row locks); `RequestFeedService.php` + `FeedController.php` (`GET /api/requests/feed`: compatibility-first ranking with intentional NearYou distance-first order, member-safe serializer, offset pagination); `FeedPage.jsx` (`/feed`, authenticated Home, login redirect, Home routing); `MatchesPage.jsx` (accept/withdraw/consent/contact UX, withdrawn history); lifecycle sweeps incl. `ACCEPTED` (fulfill/cancel/expiry/deactivation/verification-reject/blood-type-change) + quantity guard; lifecycle notifications (`match.responded/accepted/unaccepted/withdrawn/consent_revoked/closed`); `tests/feed.ps1` (F01–F34, 50/50).
+- **Migration 018 remediation hardening (2026-10-01)** (`database/migrations/018_remediation_hardening.sql`): `users.session_version` (session revocation epoch); `notifications.dedup_key`/`generation` backfilled + `NOT NULL`; indexes `matches(donor_id, status)`, `donation_reports(match_id, status)`. Behavior: confirm rejects non-`RESPONDED`/`ACCEPTED` with no side effects; capacity enforced on accept + confirm under request locks; accept re-validates live eligibility; atomic single-PENDING reports; atomic reset consumption + identical known/unknown throttle; DOB change re-evaluates enrollment; owner-only request coordinates; fail-closed critical audit; critical email throttle; fulfillment notices; deterministic ordered expiry with per-request claim; donor-scoped location refresh with own-rank recompute (shared `MatchService::rankScore`); server pagination for my-requests/matches; validation envelopes; upload hardening (strict `move_uploaded_file`, PDF download disposition, serve-time MIME re-check, orphan cleanup); login CSRF rotation with response token; 12h idle timeout; last-admin guard. `tests/remediation.ps1` (R01–R24, 25/25).
+- **Current verification**: `tests/run_all.ps1` 15/15 suites green, 431 assertions (Phase 3: 26, Phase 4: 23, Phase 5: 44, Phase 6: 35, Phase 7: 28, Phase 8: 30, Phase 9: 16, Phase 10: 43, Phase 11: 31, Phase 12: 32, Location: 20/20, Phase 16 security: 15, Feed: 50, Profile pictures: 13, Remediation: 25); evidence `docs/test-log-remediation.md`. Baseline runs assume a fixture-clean dev DB (see README testing notes).
 - **Remaining future work**: per AGENTS.md priority — correctness/security first; no invented roadmap items. Genuine gaps (if any) are listed in the documentation sync final report, not here.
 
 ---

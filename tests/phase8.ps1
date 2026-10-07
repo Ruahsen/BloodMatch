@@ -51,8 +51,11 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status,              account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at,
+             donor_availability, date_of_birth, email_verified_at)
+             # Fixtures bypass /api/register by construction, so they are
+             # grandfather-equivalent (migration 021): verified email marker.
+             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15', UTC_TIMESTAMP());"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -61,6 +64,10 @@ function Login($email) {
     $csrf = Get-Csrf $s
     $r = Invoke-Json $s 'Post' '/api/login' @{ email = $email; password = 'Str0ngPass1' } $csrf
     if ($r.status -ne 200) { throw "login failed for $email ($($r.status))" }
+    # Server rotates CSRF at the login privilege boundary: adopt the fresh
+    # token from the login response (falls back to an explicit re-fetch).
+    $csrf = $r.body.data.csrf_token
+    if ([string]::IsNullOrEmpty($csrf)) { $csrf = Get-Csrf $s }
     return @{ s = $s; csrf = $csrf }
 }
 
@@ -120,25 +127,25 @@ $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
 } $reqSess.csrf
 $req1Id = $r.body.data.request.id
 if ($r.status -ne 201) { throw "request creation failed: $($r.raw)" }
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$req1Id/matches" $null $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$req1Id/matches?page=1&page_size=200" $null $reqSess.csrf
 $m1 = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$d1" } | Select-Object -First 1
 $m2 = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$d2" } | Select-Object -First 1
 if ($null -eq $m1 -or $null -eq $m2) { throw "expected both donors matched: $($r.raw)" }
 
 # donor-scoped view: d1 sees only their own entry
-$rD = Invoke-Json $d1Sess.s 'Get' "/api/requests/$req1Id/matches" $null $d1Sess.csrf
+$rD = Invoke-Json $d1Sess.s 'Get' "/api/requests/$req1Id/matches?page=1&page_size=200" $null $d1Sess.csrf
 $dScopedOk = ($rD.status -eq 200 -and @($rD.body.data.matches).Count -eq 1 -and $rD.body.data.matches[0].donor_reference -eq "donor-$d1")
 if ($dScopedOk) { Ok 'B0 matched donor sees only own match entry' } else { Bad 'B0' "count=$(@($rD.body.data.matches).Count)" }
 
 # ===== C. RESPOND =====
-$r = Invoke-Json $d2Sess.s 'Post' "/api/matches/$($m1.match_id)/respond" @{} $d2Sess.csrf
+$r = Invoke-Json $d2Sess.s 'Post' "/api/matches/$($m1.match_id)/respond" @{ donor_share_consent = $true } $d2Sess.csrf
 if ($r.status -eq 403) { Ok 'C1 non-owner respond 403' } else { Bad 'C1' "got $($r.status)" }
 
-$r = Invoke-Json $d1Sess.s 'Post' "/api/matches/$($m1.match_id)/respond" @{} $d1Sess.csrf
+$r = Invoke-Json $d1Sess.s 'Post' "/api/matches/$($m1.match_id)/respond" @{ donor_share_consent = $true } $d1Sess.csrf
 $dbSt = DbQuery "SELECT status FROM matches WHERE id=$($m1.match_id);"
 if ($r.status -eq 200 -and $dbSt -eq 'RESPONDED') { Ok 'C2 owner responds POTENTIAL->RESPONDED' } else { Bad 'C2' "status=$($r.status) db=$dbSt" }
 
-$r = Invoke-Json $d1Sess.s 'Post' "/api/matches/$($m1.match_id)/respond" @{} $d1Sess.csrf
+$r = Invoke-Json $d1Sess.s 'Post' "/api/matches/$($m1.match_id)/respond" @{ donor_share_consent = $true } $d1Sess.csrf
 if ($r.status -eq 200) { Ok 'C3 duplicate response idempotent' } else { Bad 'C3' "got $($r.status)" }
 
 $m2St = DbQuery "SELECT status FROM matches WHERE id=$($m2.match_id);"
@@ -154,7 +161,7 @@ $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $reqPreId = $r.body.data.request.id
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqPreId/matches" $null $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqPreId/matches?page=1&page_size=200" $null $reqSess.csrf
 $mPre = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$d1" } | Select-Object -First 1
 $r = Invoke-Json $d1Sess.s 'Post' '/api/donation-reports' @{ match_id = $mPre.match_id } $d1Sess.csrf
 if ($r.status -eq 409) { Ok 'D2 report on non-responded (POTENTIAL) match 409' } else { Bad 'D2' "got $($r.status)" }
@@ -173,9 +180,9 @@ $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $reqRbId = $r.body.data.request.id
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRbId/matches" $null $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRbId/matches?page=1&page_size=200" $null $reqSess.csrf
 $mRb = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$d1" } | Select-Object -First 1
-Invoke-Json $d1Sess.s 'Post' "/api/matches/$($mRb.match_id)/respond" @{} $d1Sess.csrf | Out-Null
+Invoke-Json $d1Sess.s 'Post' "/api/matches/$($mRb.match_id)/respond" @{ donor_share_consent = $true } $d1Sess.csrf | Out-Null
 & $PhpPath (Join-Path $PSScriptRoot 'helpers\create_fail_trigger.php') | Out-Null
 $r = Invoke-Json $d1Sess.s 'Post' '/api/donation-reports' @{ match_id = $mRb.match_id; note = 'FORCE_FAIL attempt' } $d1Sess.csrf
 $repFail = $r.body.data.report.id
@@ -233,13 +240,13 @@ $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
     needed_datetime=$future; location_id=$balangaLocId
 } $reqSess.csrf
 $req2Id = $r.body.data.request.id
-$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$req2Id/matches" $null $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Get' "/api/requests/$req2Id/matches?page=1&page_size=200" $null $reqSess.csrf
 $mA = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$d1" } | Select-Object -First 1
 $mB = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$d2" } | Select-Object -First 1
 if ($null -eq $mA -or $null -eq $mB) { throw "two-unit fixtures unmatched: $($r.raw)" }
 
-Invoke-Json $d1Sess.s 'Post' "/api/matches/$($mA.match_id)/respond" @{} $d1Sess.csrf | Out-Null
-Invoke-Json $d2Sess.s 'Post' "/api/matches/$($mB.match_id)/respond" @{} $d2Sess.csrf | Out-Null
+Invoke-Json $d1Sess.s 'Post' "/api/matches/$($mA.match_id)/respond" @{ donor_share_consent = $true } $d1Sess.csrf | Out-Null
+Invoke-Json $d2Sess.s 'Post' "/api/matches/$($mB.match_id)/respond" @{ donor_share_consent = $true } $d2Sess.csrf | Out-Null
 Invoke-Json $d1Sess.s 'Post' '/api/donation-reports' @{ match_id = $mA.match_id } $d1Sess.csrf | Out-Null
 Invoke-Json $d2Sess.s 'Post' '/api/donation-reports' @{ match_id = $mB.match_id } $d2Sess.csrf | Out-Null
 
@@ -265,7 +272,7 @@ $r = Invoke-Json $reqSess.s 'Post' '/api/requests' @{
 } $reqSess.csrf
 $req3Id = $r.body.data.request.id
 DbQuery "UPDATE blood_requests SET status='FULFILLED' WHERE id=$req3Id;"
-$r = Invoke-Json $d2Sess.s 'Get' "/api/requests/$req3Id/matches" $null $d2Sess.csrf
+$r = Invoke-Json $d2Sess.s 'Get' "/api/requests/$req3Id/matches?page=1&page_size=200" $null $d2Sess.csrf
 $mX = $r.body.data.matches | Select-Object -First 1
 if ($mX) {
     $r = Invoke-Json $d2Sess.s 'Post' "/api/matches/$($mX.match_id)/respond" @{} $d2Sess.csrf

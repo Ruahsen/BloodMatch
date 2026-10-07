@@ -6,6 +6,7 @@ namespace BloodMatch\Controllers\Auth;
 
 use BloodMatch\Services\AuthService;
 use BloodMatch\Services\Exceptions\AuthException;
+use BloodMatch\Services\Exceptions\EmailVerificationRequiredException;
 use BloodMatch\Utils\Request;
 use BloodMatch\Utils\Response;
 
@@ -23,13 +24,16 @@ final class LoginController
         }
 
         try {
-            $user = (new AuthService())->login($email, $password);
+            $result = (new AuthService())->login($email, $password);
+        } catch (EmailVerificationRequiredException $e) {
+            Response::error($e->getMessage(), 403, $e->details());
+            return;
         } catch (AuthException $e) {
             $status = $e->getCode() >= 400 && $e->getCode() <= 429 ? $e->getCode() : 401;
             Response::error($e->getMessage(), $status);
             return;
         }
 
-        Response::success(['user' => $user]);
+        Response::success($result);
     }
 }

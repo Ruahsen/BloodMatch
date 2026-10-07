@@ -76,7 +76,8 @@ function New-FixtureUser($email, $name, $role, $chapterId, $dob, $vs) {
     $hash = & $PhpPath -r "echo password_hash('Str0ngPass1', PASSWORD_BCRYPT);"
     $chapSql = 'NULL'; if ($null -ne $chapterId) { $chapSql = "$chapterId" }
     $dobSql = 'NULL'; if ($null -ne $dob) { $dobSql = "'$dob'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, date_of_birth) VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $dobSql);"
+    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, date_of_birth, email_verified_at) VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $dobSql, UTC_TIMESTAMP());"
+    # Fixtures bypass /api/register by construction: grandfather-equivalent (migration 021).
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -85,6 +86,10 @@ function Login($email) {
     $csrf = Get-Csrf $s
     $r = Invoke-Json $s 'Post' '/api/login' @{ email = $email; password = 'Str0ngPass1' } $csrf
     if ($r.status -ne 200) { throw "login failed for $email ($($r.status))" }
+    # Server rotates CSRF at the login privilege boundary: adopt the fresh
+    # token from the login response (falls back to an explicit re-fetch).
+    $csrf = $r.body.data.csrf_token
+    if ([string]::IsNullOrEmpty($csrf)) { $csrf = Get-Csrf $s }
     return @{ s = $s; csrf = $csrf }
 }
 

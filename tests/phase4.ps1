@@ -46,8 +46,9 @@ function New-FixtureUser($email, $name, $role, $chapterId, $password) {
     $hash = & $PhpPath -r "echo password_hash('$password', PASSWORD_BCRYPT);"
     $chapSql = 'NULL'
     if ($null -ne $chapterId) { $chapSql = "$chapterId" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$(if ($role -eq 'officer') {'verified'} else {'pending'})', 'active');"
+    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, email_verified_at)
+             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$(if ($role -eq 'officer') {'verified'} else {'pending'})', 'active', UTC_TIMESTAMP());"
+    # Fixtures bypass /api/register by construction: grandfather-equivalent (migration 021).
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -71,6 +72,10 @@ function Login($email) {
     $csrf = Get-Csrf $s
     $r = Invoke-Json $s 'Post' '/api/login' @{ email = $email; password = $pw } $csrf
     if ($r.status -ne 200) { throw "fixture login failed for $email ($($r.status))" }
+    # Server rotates CSRF at the login privilege boundary: adopt the fresh
+    # token from the login response (falls back to an explicit re-fetch).
+    $csrf = $r.body.data.csrf_token
+    if ([string]::IsNullOrEmpty($csrf)) { $csrf = Get-Csrf $s }
     return @{ s = $s; csrf = $csrf }
 }
 
@@ -105,7 +110,7 @@ $r = Invoke-Json $oa.s 'Get' '/api/officer/users?chapter_id=2' $null $oa.csrf
 if ($r.status -eq 403) { Ok 'T06 officer cross-chapter request 403' } else { Bad 'T06' "got $($r.status)" }
 
 # --- T07 officer without chapter rejected ---
-DbQuery "INSERT INTO users (email, password_hash, full_name, role, verification_status, account_status) VALUES ('p4nochapter$suffix@test.local', '$(& $PhpPath -r ""echo password_hash('$pw', PASSWORD_BCRYPT);"")', 'No Chapter Officer', 'officer', 'verified', 'active');"
+DbQuery "INSERT INTO users (email, password_hash, full_name, role, verification_status, account_status, email_verified_at) VALUES ('p4nochapter$suffix@test.local', '$(& $PhpPath -r ""echo password_hash('$pw', PASSWORD_BCRYPT);"")', 'No Chapter Officer', 'officer', 'verified', 'active', UTC_TIMESTAMP());"
 $ncId = DbQuery "SELECT id FROM users WHERE email='p4nochapter$suffix@test.local';"
 $nc = Login "p4nochapter$suffix@test.local"
 $r = Invoke-Json $nc.s 'Get' '/api/officer/users' $null $nc.csrf

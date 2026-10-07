@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
@@ -14,23 +14,31 @@ export default function DemandMapPage() {
   const [error, setError] = useState(null)
   const [selectedBloodType, setSelectedBloodType] = useState('All')
   const [selectedUrgency, setSelectedUrgency] = useState('All')
-  const [selectedDays, setSelectedDays] = useState('')
+  // Default 30-day trend window per the finalized demand-map contract.
+  const [selectedDays, setSelectedDays] = useState('30')
+  // Monotonic sequence: a stale response must never overwrite newer state.
+  const seqRef = useRef(0)
 
-  const fetchMapData = async () => {
+  const fetchMapData = async (bt = selectedBloodType, urg = selectedUrgency, days = selectedDays) => {
+    const seq = seqRef.current + 1
+    seqRef.current = seq
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
-      if (selectedBloodType !== 'All') params.set('blood_type', selectedBloodType)
-      if (selectedUrgency !== 'All') params.set('urgency', selectedUrgency)
-      if (selectedDays) params.set('days', selectedDays)
+      if (bt !== 'All') params.set('blood_type', bt)
+      if (urg !== 'All') params.set('urgency', urg)
+      if (days) params.set('days', days)
 
       const res = await api.get(`/api/demand-map?${params.toString()}`)
+      if (seqRef.current !== seq) return
       setChapters(res.chapters || [])
+      setError(null)
     } catch (err) {
+      if (seqRef.current !== seq) return
       setError(err.message || 'Failed to load regional demand map.')
     } finally {
-      setLoading(false)
+      if (seqRef.current === seq) setLoading(false)
     }
   }
 
@@ -99,13 +107,13 @@ export default function DemandMapPage() {
             >
               <option value="">All Active OPEN</option>
               <option value="7">Created Last 7 Days</option>
-              <option value="30">Created Last 30 Days</option>
+              <option value="30">Created Last 30 Days (default)</option>
               <option value="90">Created Last 90 Days</option>
             </select>
           </div>
 
           <div>
-            <button type="button" className="btn btn-secondary" onClick={fetchMapData} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => fetchMapData()} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <ArrowsClockwise size={14} weight="regular" aria-hidden="true" /> Refresh
             </button>
           </div>
@@ -188,9 +196,10 @@ export default function DemandMapPage() {
                     <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--space-2)' }}>Demand by Blood Group</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 'var(--space-2)' }}>
                       {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bt) => {
-                        const count = ch.blood_type_demand?.[bt]?.requests_count || 0
-                        const units = ch.blood_type_demand?.[bt]?.units_needed || 0
-                        const hasDemand = count > 0
+                        // Backend contract: blood_type_counts[bt] = units
+                        // needed for currently OPEN requests (see docs/api.md).
+                        const units = ch.blood_type_counts?.[bt] || 0
+                        const hasDemand = units > 0
 
                         return (
                           <div
@@ -205,7 +214,7 @@ export default function DemandMapPage() {
                           >
                             <div style={{ fontWeight: 800, fontSize: '0.9375rem' }}>{bt}</div>
                             <div style={{ fontSize: '0.75rem', color: hasDemand ? 'var(--color-text)' : 'var(--color-text-subtle)' }}>
-                              {count > 0 ? `${count} req (${units}u)` : '–'}
+                              {hasDemand ? `${units}u needed` : '–'}
                             </div>
                           </div>
                         )

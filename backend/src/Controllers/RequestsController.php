@@ -8,6 +8,8 @@ use BloodMatch\Middleware\AuthMiddleware;
 use BloodMatch\Repositories\BloodRequestRepository;
 use BloodMatch\Repositories\UserRepository;
 use BloodMatch\Services\AuditLogger;
+use BloodMatch\Services\AuthService;
+use BloodMatch\Services\MatchDecisionService;
 use BloodMatch\Services\RequestService;
 use BloodMatch\Services\Exceptions\ValidationException;
 use BloodMatch\Utils\Request;
@@ -70,7 +72,7 @@ final class RequestsController
         $fresh = $repo->findById($id);
         $requester = (new UserRepository())->findById((int) $actor['id']);
         Response::success([
-            'request' => RequestService::publicView($fresh, $requester),
+            'request' => RequestService::publicView($fresh, $requester, true),
             'matching' => $matchSummary,
         ], 201);
     }
@@ -78,11 +80,19 @@ final class RequestsController
     public function mine(): void
     {
         $actor = AuthMiddleware::requireActiveUser('requests.mine');
-        $rows = (new BloodRequestRepository())->listByRequester((int) $actor['id']);
-        Response::success(['requests' => array_map(
-            static fn (array $row): array => RequestService::publicView($row, null),
-            $rows
-        )]);
+        // Query-string pagination (GET semantics via the standard reader).
+        $page = max(1, Request::int('page') ?? 1);
+        $pageSize = min(100, max(1, Request::int('page_size') ?? 20));
+        $result = (new BloodRequestRepository())->listByRequester((int) $actor['id'], $page, $pageSize);
+        Response::success([
+            'requests' => array_map(
+                static fn (array $row): array => RequestService::publicView($row, null, true),
+                $result['requests']
+            ),
+            'total' => $result['total'],
+            'page' => $page,
+            'page_size' => $pageSize,
+        ]);
     }
 
     public function show(array $params): void
@@ -93,7 +103,8 @@ final class RequestsController
             return;
         }
         $requester = (new UserRepository())->findById((int) $row['requester_id']);
-        Response::success(['request' => RequestService::publicView($row, $requester)]);
+        $isOwner = (int) $row['requester_id'] === (int) $actor['id'];
+        Response::success(['request' => RequestService::publicView($row, $requester, $isOwner)]);
     }
 
     public function update(array $params): void
@@ -129,8 +140,55 @@ final class RequestsController
             return;
         }
 
+        // Quantity reductions must never invalidate accepted/completed
+        // commitments. Guard under the request row lock so a concurrent
+        // accept cannot slip between the check and the write.
+        if (array_key_exists('quantity_units', $fields)
+            && (int) $fields['quantity_units'] !== (int) $row['quantity_units']) {
+            $pdo = \BloodMatch\Config\Database::pdo();
+            $pdo->beginTransaction();
+            try {
+                $locked = $repo->findByIdForUpdate($id);
+                if ($locked === null || (string) $locked['status'] !== 'OPEN') {
+                    throw new RuntimeException('Only OPEN requests can be edited.', 409);
+                }
+                $accepted = \BloodMatch\Repositories\MatchRepository::countAccepted($id);
+                $completed = \BloodMatch\Repositories\MatchRepository::countCompleted($id);
+                if ((int) $fields['quantity_units'] < $accepted + $completed) {
+                    AuditLogger::log((int) $actor['id'], 'authz.denied', 'blood_request', (string) $id, [
+                        'endpoint' => 'requests.update',
+                        'reason' => 'quantity_below_committed',
+                        'accepted' => $accepted,
+                        'completed' => $completed,
+                    ]);
+                    throw new RuntimeException(
+                        sprintf(
+                            'Quantity cannot be reduced below the %d already accepted or completed unit(s).',
+                            $accepted + $completed
+                        ),
+                        409
+                    );
+                }
+                $repo->updateFields($id, $fields);
+                $pdo->commit();
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                if ($e instanceof RuntimeException) {
+                    $code = $e->getCode();
+                    Response::error($e->getMessage(), $code >= 400 && $code <= 499 ? $code : 500);
+                    return;
+                }
+                error_log('[requests] quantity-guarded update failed: ' . $e->getMessage());
+                Response::error('Could not update the request.', 500);
+                return;
+            }
+        } else {
+            $repo->updateFields($id, $fields);
+        }
+
         $materialGroups = RequestService::materialChangedFields($row, $fields);
-        $repo->updateFields($id, $fields);
 
         if ($materialGroups !== []) {
             AuditLogger::log((int) $actor['id'], 'request.material_change', 'blood_request', (string) $id, [
@@ -149,7 +207,34 @@ final class RequestsController
         }
 
         $fresh = $repo->findById($id);
-        Response::success(['request' => RequestService::publicView($fresh, $actor)]);
+        Response::success(['request' => RequestService::publicView($fresh, $actor, true)]);
+    }
+
+    /**
+     * Request-scoped Respond: primary action for the Home feed. Reconciles a
+     * possibly missing/stale persisted relationship from live donor state —
+     * the feed must never require the frontend to possess a match ID.
+     */
+    public function respondForRequest(array $params): void
+    {
+        $actor = AuthMiddleware::requireActiveUser('requests.respond');
+        $requestId = (int) $params['id'];
+        $consent = AuthService::isPrivacyAcknowledged(Request::json()['donor_share_consent'] ?? null);
+
+        try {
+            $result = (new MatchDecisionService())
+                ->respondDonor($requestId, (int) $actor['id'], $consent, 'requests.respond');
+        } catch (RuntimeException $e) {
+            $code = $e->getCode();
+            Response::error($e->getMessage(), $code >= 400 && $code <= 499 ? $code : 500);
+            return;
+        }
+
+        Response::success([
+            'message' => 'Response recorded.',
+            'status' => $result['status'],
+            'match_id' => $result['match_id'],
+        ]);
     }
 
     public function matches(array $params): void
@@ -170,8 +255,18 @@ final class RequestsController
             && $actor['chapter_id'] !== null
             && (int) $actor['chapter_id'] === (int) $row['request_chapter_id'];
 
+        $page = max(1, Request::int('page') ?? 1);
+        $pageSize = min(200, max(1, Request::int('page_size') ?? 50));
+
+        $matchService = new \BloodMatch\Services\MatchService();
         if ($isOwner || $isAdmin || $isSameChapterOfficer) {
-            Response::success(['matches' => (new \BloodMatch\Services\MatchService())->privacySafeMatches($requestId)]);
+            Response::success([
+                'matches' => $matchService->privacySafeMatches($requestId, null, $page, $pageSize),
+                'history' => $matchService->terminalHistoryForRequest($requestId),
+                'total' => $matchService->countActiveMatches($requestId),
+                'page' => $page,
+                'page_size' => $pageSize,
+            ]);
             return;
         }
 
@@ -181,8 +276,11 @@ final class RequestsController
 
         if ($ownMatch !== null) {
             Response::success([
-                'matches' => (new \BloodMatch\Services\MatchService())
-                    ->privacySafeMatches($requestId, (int) $actor['id']),
+                'matches' => $matchService->privacySafeMatches($requestId, (int) $actor['id'], $page, $pageSize),
+                'history' => $matchService->principalTerminalHistory($requestId, (int) $actor['id']),
+                'total' => $matchService->countActiveMatches($requestId, (int) $actor['id']),
+                'page' => $page,
+                'page_size' => $pageSize,
             ]);
             return;
         }
@@ -256,9 +354,40 @@ final class RequestsController
             return;
         }
 
-        $repo->setStatus($id, 'CANCELLED');
+        // Atomic terminal sweep: claim the request under its row lock and
+        // re-check OPEN there, so a concurrent accept/respond/confirm cannot
+        // slip between the earlier read and the status change. The accepted
+        // snapshot is taken inside the same transaction, after the claim.
+        $pdo = \BloodMatch\Config\Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $locked = $repo->findByIdForUpdate($id);
+            if ($locked === null || (string) $locked['status'] !== 'OPEN') {
+                throw new RuntimeException(
+                    $locked === null ? 'Request not found.' : "Only OPEN requests can be cancelled (current: {$locked['status']}).",
+                    $locked === null ? 404 : 409
+                );
+            }
+            $acceptedDonors = (new \BloodMatch\Repositories\MatchRepository())->listAcceptedDonors($id);
+            $repo->setStatus($id, 'CANCELLED');
+            $closedCount = \BloodMatch\Repositories\MatchRepository::closeUnresolvedForRequest($id);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if ($e instanceof RuntimeException) {
+                $code = $e->getCode();
+                Response::error($e->getMessage(), $code >= 400 && $code <= 499 ? $code : 500);
+                return;
+            }
+            error_log('[requests] cancel failed: ' . $e->getMessage());
+            Response::error('Could not cancel the request.', 500);
+            return;
+        }
         AuditLogger::log((int) $actor['id'], 'request.cancelled', 'blood_request', (string) $id, [
             'via' => $isOwner ? 'owner' : ($isAdmin ? 'admin' : 'officer'),
+            'closed_matches' => $closedCount ?? 0,
         ]);
 
         \BloodMatch\Services\NotificationService::notify(
@@ -270,10 +399,29 @@ final class RequestsController
                 'related_type' => 'blood_request',
                 'related_id' => $id,
                 'dedup_key' => "request:{$id}:cancelled",
+                'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
             ]
         );
 
-        Response::success(['request' => RequestService::publicView($repo->findById($id), null)]);
+        // Accepted donors hold a live contact relationship: tell each of them
+        // directly. Candidate (POTENTIAL/NOTIFIED/RESPONDED) rows close
+        // silently, preserving existing behavior.
+        foreach ($acceptedDonors as $accepted) {
+            \BloodMatch\Services\NotificationService::notify(
+                (int) $accepted['donor_id'],
+                'request.cancelled',
+                'A blood request you were accepted for was cancelled',
+                sprintf('Blood request #%d was cancelled. Contact details are no longer available.', $id),
+                [
+                    'related_type' => 'blood_request',
+                    'related_id' => $id,
+                    'dedup_key' => "request:{$id}:cancelled:donor:" . (int) $accepted['donor_id'],
+                    'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
+                ]
+            );
+        }
+
+        Response::success(['request' => RequestService::publicView($repo->findById($id), null, $isOwner)]);
     }
 
     private function loadForAccess(array $actor, int $id, string $endpoint): ?array

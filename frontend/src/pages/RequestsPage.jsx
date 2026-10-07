@@ -3,18 +3,27 @@ import { Link } from 'react-router-dom'
 import { ArrowRight } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
+const MINE_PAGE_SIZE = 20
+
 export default function RequestsPage() {
   const [requests, setRequests] = useState(null)
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [filter, setFilter] = useState('ALL')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  const load = useCallback(() => {
+  const load = useCallback((p = page) => {
+    setErrorAlert(null)
     return api
-      .get('/api/my/requests')
-      .then((data) => setRequests(data.requests || []))
+      .get(`/api/my/requests?page=${p}&page_size=${MINE_PAGE_SIZE}`)
+      .then((data) => {
+        setRequests(data.requests || [])
+        setTotal(data.total || 0)
+        setErrorAlert(null)
+      })
       .catch((err) => setErrorAlert(err.message))
-  }, [])
+  }, [page])
 
   useEffect(() => {
     load()
@@ -34,6 +43,12 @@ export default function RequestsPage() {
       setErrorAlert(err.message)
     }
   }
+
+  const gotoPage = (p) => {
+    setPage(p)
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / MINE_PAGE_SIZE))
 
   if (!requests) {
     return (
@@ -153,6 +168,29 @@ export default function RequestsPage() {
               </div>
             </article>
           ))}
+          {totalPages > 1 && (
+            <nav aria-label="My requests pages" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-6)', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={page <= 1}
+                onClick={() => gotoPage(page - 1)}
+              >
+                ← Newer
+              </button>
+              <span className="muted" style={{ fontSize: '0.8125rem' }} aria-live="polite">
+                Page {page} of {totalPages} · {total} request{total === 1 ? '' : 's'}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={page >= totalPages}
+                onClick={() => gotoPage(page + 1)}
+              >
+                Older →
+              </button>
+            </nav>
+          )}
         </div>
       )}
     </div>

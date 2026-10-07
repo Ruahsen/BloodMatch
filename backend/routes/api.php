@@ -10,6 +10,7 @@ use BloodMatch\Controllers\Analytics\DemandMapController;
 use BloodMatch\Controllers\Auth\CsrfController;
 use BloodMatch\Controllers\CompatibilityController;
 use BloodMatch\Controllers\DocumentController;
+use BloodMatch\Controllers\FeedController;
 use BloodMatch\Controllers\DonationReportController;
 use BloodMatch\Controllers\LocationController;
 use BloodMatch\Controllers\ProfileController;
@@ -20,6 +21,7 @@ use BloodMatch\Controllers\ProfilePictureController;
 use BloodMatch\Controllers\Auth\LoginController;
 use BloodMatch\Controllers\Auth\LogoutController;
 use BloodMatch\Controllers\Auth\MeController;
+use BloodMatch\Controllers\Auth\EmailOtpController;
 use BloodMatch\Controllers\Auth\PasswordResetController;
 use BloodMatch\Controllers\Auth\RegisterController;
 use BloodMatch\Controllers\ChaptersController;
@@ -44,6 +46,13 @@ return static function (Router $router): void {
 
     $router->add('POST', '/api/password-reset/request', [new PasswordResetController(), 'request']);
     $router->add('POST', '/api/password-reset/confirm', [new PasswordResetController(), 'confirm']);
+
+    $router->add('POST', '/api/auth/email-otp/send', [new EmailOtpController(), 'send']);
+    $router->add('POST', '/api/auth/email-otp/verify', [new EmailOtpController(), 'verify']);
+    $router->add('GET', '/api/auth/email-otp/status', [new EmailOtpController(), 'status']);
+    // Claim-mode status for the logged-out registration journey: POST so
+    // the verification token stays in the JSON body, never in a URL.
+    $router->add('POST', '/api/auth/email-otp/status', [new EmailOtpController(), 'statusViaPost']);
 
     $router->add('GET', '/api/admin/users', [new UserAdminController(), 'index']);
     $router->add('POST', '/api/admin/users/{id}/role', [new UserAdminController(), 'setRole']);
@@ -70,6 +79,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/officer/documents/{documentId}/file', [new DocumentController(), 'fileOfficer']);
 
     $router->add('POST', '/api/requests', [new RequestsController(), 'create']);
+    $router->add('GET', '/api/requests/feed', [new FeedController(), 'feed']);
     $router->add('GET', '/api/my/requests', [new RequestsController(), 'mine']);
     $router->add('GET', '/api/requests/{id}', [new RequestsController(), 'show']);
     $router->add('PUT', '/api/requests/{id}', [new RequestsController(), 'update']);
@@ -80,6 +90,12 @@ return static function (Router $router): void {
 
     $router->add('POST', '/api/profile/donor-availability', [new ProfileController(), 'setDonorAvailability']);
     $router->add('POST', '/api/matches/{matchId}/respond', [new MatchesController(), 'respond']);
+    $router->add('POST', '/api/requests/{id}/respond', [new RequestsController(), 'respondForRequest']);
+    $router->add('POST', '/api/matches/{matchId}/accept', [new MatchesController(), 'accept']);
+    $router->add('POST', '/api/matches/{matchId}/unaccept', [new MatchesController(), 'unaccept']);
+    $router->add('POST', '/api/matches/{matchId}/withdraw', [new MatchesController(), 'withdraw']);
+    $router->add('POST', '/api/matches/{matchId}/consent', [new MatchesController(), 'consent']);
+    $router->add('GET', '/api/matches/{matchId}/contact', [new MatchesController(), 'contact']);
     $router->add('POST', '/api/donation-reports', [new DonationReportController(), 'submit']);
     $router->add('GET', '/api/my/donation-reports', [new DonationReportController(), 'myReports']);
     $router->add('GET', '/api/officer/donation-reports', [new DonationReportController(), 'officerQueue']);

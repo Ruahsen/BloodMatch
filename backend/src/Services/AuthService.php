@@ -99,6 +99,10 @@ final class AuthService
             $v->addError('location_id', 'Set your location after registration using the Bataan municipality/barangay selector.');
         }
 
+        if ($phone !== null && !preg_match('/^[0-9+\-\s()]{5,30}$/', $phone)) {
+            $v->addError('phone', 'Phone format is invalid.');
+        }
+
         if ($chapterId !== null && !$this->users->chapterExists($chapterId)) {
             $v->addError('chapter_id', 'Chapter does not exist.');
         }
@@ -132,11 +136,43 @@ final class AuthService
             'longitude' => $longitude,
         ]);
 
+        // Registration-time email OTP: the account is authoritative from
+        // this point on; the OTP subsystem is auxiliary and must never be
+        // able to fail registration. The minted claim token lets the
+        // still-logged-out registrant complete verification; no session
+        // is created here (the user signs in afterwards, as before).
+        $emailOtp = [
+            'required' => false,
+            'delivered' => false,
+            'masked_email' => null,
+            'expires_in_seconds' => 0,
+            'resend_available_in_seconds' => 0,
+            'verification_token' => null,
+        ];
+        try {
+            $otpService = new EmailOtpService();
+            $issued = $otpService->issueForRegistration($this->users->findById($userId));
+            $emailOtp = [
+                'required' => true,
+                'delivered' => (bool) $issued['delivered'],
+                'masked_email' => EmailOtpService::maskEmail($email),
+                'expires_in_seconds' => (int) $issued['expires_in_seconds'],
+                'resend_available_in_seconds' => (int) $issued['resend_available_in_seconds'],
+                'verification_token' => $otpService->mintClaimToken($userId),
+            ];
+        } catch (Throwable $e) {
+            error_log('[register] email-otp issuance failed: ' . $e->getMessage());
+        }
+
         AuditLogger::log($userId, 'user.registered', 'user', (string) $userId, [
             'verification_status' => 'pending',
+            'email_otp_delivered' => $emailOtp['delivered'],
         ]);
 
-        return $this->publicUser($this->users->findById($userId));
+        return [
+            'user' => $this->publicUser($this->users->findById($userId)),
+            'email_otp' => $emailOtp,
+        ];
     }
 
     public function login(string $email, string $password): array
@@ -158,13 +194,40 @@ final class AuthService
             || !password_verify($password, $user['password_hash'])
         ) {
             $this->throttle->recordFailure($key, self::MAX_FAILED_ATTEMPTS, self::LOCK_MINUTES, $now);
-            AuditLogger::log(null, 'auth.login.failed', 'user', null, ['email' => $email]);
+            // No email in audit context: login identifiers are private.
+            AuditLogger::log(null, 'auth.login.failed', 'user', null, ['endpoint' => 'auth.login']);
             throw new Exceptions\AuthException('Invalid email or password.', 401);
         }
 
         if ((string) $user['account_status'] === 'deactivated') {
             AuditLogger::log((int) $user['id'], 'auth.login.blocked_deactivated', 'user', (string) $user['id']);
             throw new Exceptions\AuthException('This account has been deactivated.', 403);
+        }
+
+        // Mandatory email verification gate: accounts that never proved
+        // ownership of their address cannot authenticate. Placement is
+        // deliberate — AFTER the uniform 401 password check (wrong
+        // passwords stay indistinguishable from unknown emails) and after
+        // the deactivated check (existing precedence), but BEFORE any
+        // session state is created, so a blocked login never yields even
+        // a partial authenticated session. No throttle failure is
+        // recorded here (the password was correct), so verifying later
+        // is never punished with a lockout.
+        if (($user['email_verified_at'] ?? null) === null) {
+            // Fresh single-purpose claim token so the blocked user has an
+            // immediate path back to verification (resend rules still
+            // apply; no OTP email is sent here). Supersedes any older
+            // token, exactly like registration issuance.
+            $claimToken = (new EmailOtpService())->mintClaimToken((int) $user['id']);
+            AuditLogger::log((int) $user['id'], 'auth.login.blocked_unverified', 'user', (string) $user['id']);
+            throw new Exceptions\EmailVerificationRequiredException(
+                'Please verify your email address before logging in.',
+                [
+                    'code' => 'email_verification_required',
+                    'masked_email' => EmailOtpService::maskEmail((string) $user['email']),
+                    'verification_token' => $claimToken,
+                ]
+            );
         }
 
         if (password_needs_rehash((string) $user['password_hash'], PASSWORD_BCRYPT)) {
@@ -175,10 +238,19 @@ final class AuthService
         Session::regenerate();
         $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['role'] = (string) $user['role'];
+        // Revocation epoch + activity marker (see AuthMiddleware idle and
+        // version checks). Previous-session CSRF is rotated at this
+        // privilege boundary so a pre-login token cannot be reused; the
+        // fresh token ships in the login response so clients do not need
+        // an extra round-trip.
+        $_SESSION['session_version'] = (int) ($user['session_version'] ?? 1);
+        $_SESSION['last_activity'] = time();
+        unset($_SESSION['csrf_token']);
+        $freshCsrf = \BloodMatch\Utils\Csrf::token();
 
         AuditLogger::log((int) $user['id'], 'auth.login.success', 'user', (string) $user['id']);
 
-        return $this->publicUser($user);
+        return ['user' => $this->publicUser($user), 'csrf_token' => $freshCsrf];
     }
 
     public function logout(?int $userId): void
@@ -196,13 +268,28 @@ final class AuthService
         $now = self::nowUtc();
 
         if ($this->throttle->isLocked($key, $now)) {
+            AuditLogger::log(null, 'auth.password_reset.locked', null, null, ['endpoint' => 'password_reset.request']);
             throw new Exceptions\AuthException('Too many attempts. Try again later.', 429);
         }
 
         $user = $this->users->findByEmail($email);
 
+        // Identical externally observable behavior whether or not the email
+        // belongs to an account: throttle advances in both cases and the
+        // response stays generic, so repeated probes cannot distinguish
+        // known from unknown addresses (no lockout oracle, no email bombing
+        // of valid accounts, no token-table bloat).
+        $this->throttle->recordFailure($key, self::MAX_FAILED_ATTEMPTS, self::LOCK_MINUTES, $now);
+
         if ($user === null || (string) $user['account_status'] === 'deactivated') {
-            $this->throttle->recordFailure($key, self::MAX_FAILED_ATTEMPTS, self::LOCK_MINUTES, $now);
+            return;
+        }
+
+        // Cap concurrently valid tokens per account; extra requests reuse the
+        // existing window instead of minting unlimited tokens.
+        $this->resets->deleteExpired($now);
+        if ($this->resets->countActiveForUser((int) $user['id'], $now) >= 3) {
+            AuditLogger::log((int) $user['id'], 'auth.password_reset.requested', 'user', (string) $user['id'], ['reused_window' => true]);
             return;
         }
 
@@ -210,7 +297,6 @@ final class AuthService
         $expiresAt = gmdate('Y-m-d H:i:s', time() + self::RESET_TOKEN_TTL_SECONDS);
         $this->resets->create((int) $user['id'], hash('sha256', $token), $expiresAt);
 
-        $this->throttle->clear($key);
         AuditLogger::log((int) $user['id'], 'auth.password_reset.requested', 'user', (string) $user['id']);
 
         if (\BloodMatch\Services\Mailer::isConfigured()) {
@@ -241,16 +327,37 @@ final class AuthService
         $tokenHash = hash('sha256', $token);
         $now = self::nowUtc();
 
-        $reset = $this->resets->findValidByHash($tokenHash, $now);
+        // Failed-confirmation throttle (per-token): guessing a 256-bit token
+        // is infeasible, but every failure is still rate-limited and audited.
+        $confirmKey = 'reset-confirm:' . substr($tokenHash, 0, 16);
+        if ($this->throttle->isLocked($confirmKey, $now)) {
+            AuditLogger::log(null, 'auth.password_reset.locked', null, null, ['endpoint' => 'password_reset.confirm']);
+            throw new Exceptions\AuthException('Too many attempts. Try again later.', 429);
+        }
+
+        // Atomic consumption: of N concurrent confirms with the same token,
+        // exactly one succeeds; the rest observe an invalid token.
+        $reset = $this->resets->consumeValidToken($tokenHash, $now);
         if ($reset === null) {
+            $this->throttle->recordFailure($confirmKey, self::MAX_FAILED_ATTEMPTS, self::LOCK_MINUTES, $now);
+            AuditLogger::log(null, 'auth.password_reset.failed', null, null, ['endpoint' => 'password_reset.confirm']);
             throw new Exceptions\AuthException('Reset link is invalid or has expired.', 400);
+        }
+
+        $target = $this->users->findById((int) $reset['user_id']);
+        if ($target === null || (string) $target['account_status'] !== 'active') {
+            AuditLogger::log((int) $reset['user_id'], 'auth.password_reset.failed', 'user', (string) $reset['user_id'], [
+                'endpoint' => 'password_reset.confirm',
+                'reason' => 'account_inactive',
+            ]);
+            throw new Exceptions\AuthException('This account can no longer use password reset.', 403);
         }
 
         $pdo = \BloodMatch\Config\Database::pdo();
         try {
             $pdo->beginTransaction();
-            $this->resets->markUsed((int) $reset['id'], $now);
             $this->users->updatePasswordHash((int) $reset['user_id'], password_hash($newPassword, PASSWORD_BCRYPT));
+            $this->users->bumpSessionVersion((int) $reset['user_id']);
             $this->resets->deleteOtherUnused((int) $reset['user_id'], (int) $reset['id']);
             $pdo->commit();
         } catch (Throwable $e) {
@@ -260,6 +367,7 @@ final class AuthService
             throw new RuntimeException('Could not complete password reset.', 0, $e);
         }
 
+        $this->throttle->clear($confirmKey);
         AuditLogger::log((int) $reset['user_id'], 'auth.password_reset.completed', 'user', (string) $reset['user_id']);
     }
 
@@ -272,6 +380,7 @@ final class AuthService
             'role' => (string) $user['role'],
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
+            'email_verified_at' => $user['email_verified_at'] ?? null,
             'profile_picture_url' => ProfilePictureStorageService::urlFor($user['profile_picture'] ?? null),
         ];
     }

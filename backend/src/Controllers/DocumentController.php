@@ -73,12 +73,19 @@ final class DocumentController
             return;
         }
 
-        $docId = (new DocumentRepository())->create(
-            (int) $actor['id'],
-            $docType,
-            $stored,
-            AuthService::nowUtc()
-        );
+        try {
+            $docId = (new DocumentRepository())->create(
+                (int) $actor['id'],
+                $docType,
+                $stored,
+                AuthService::nowUtc()
+            );
+        } catch (\Throwable $e) {
+            // No orphan files: storage was written before the DB row, so a
+            // failed insert must remove the stored bytes again.
+            @unlink(DocumentStorageService::pathFor($stored['stored_name']));
+            throw $e;
+        }
 
         AuditLogger::log((int) $actor['id'], 'document.uploaded', 'member_document', (string) $docId, [
             'doc_type' => $docType,
@@ -170,10 +177,25 @@ final class DocumentController
             return;
         }
 
-        header('Content-Type: ' . (string) $doc['mime_type']);
+        // Re-validate bytes at serve time: never trust the stored MIME alone
+        // if the file on disk was swapped after upload.
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $actualMime = $finfo->file($path);
+        if (!is_string($actualMime) || !in_array($actualMime, DocumentStorageService::allowedMimeTypes(), true)) {
+            Response::error('Document file missing.', 404);
+            return;
+        }
+
+        // PDFs are served as downloads so embedded active content can never
+        // execute in the BloodMatch origin; images stay inline for review.
+        $disposition = $actualMime === 'application/pdf' ? 'attachment' : 'inline';
+        header('Content-Type: ' . $actualMime);
         header('Content-Length: ' . (string) filesize($path));
-        header('Content-Disposition: inline; filename="document-' . (int) $doc['id'] . '.' . (string) $doc['original_ext'] . '"');
-        header_remove('Cache-Control');
+        header('Content-Disposition: ' . $disposition . '; filename="document-' . (int) $doc['id'] . '.' . (string) $doc['original_ext'] . '"');
+        // Private identity documents must never be cached on shared
+        // machines or intermediate proxies.
+        header('Cache-Control: no-store, max-age=0');
+        header('Pragma: no-cache');
         readfile($path);
         exit;
     }

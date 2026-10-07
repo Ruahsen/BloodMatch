@@ -9,10 +9,15 @@ $suites = @(
     'phase8.ps1',
     'phase9.ps1',
     'phase10.ps1',
+    'email_notifications.ps1',
     'phase11.ps1',
     'phase12.ps1',
     'location.ps1',
-    'phase16_security.ps1'
+    'phase16_security.ps1',
+    'feed.ps1',
+    'profile_picture.ps1',
+    'remediation.ps1',
+    'email_otp.ps1'
 )
 
 $passed = 0

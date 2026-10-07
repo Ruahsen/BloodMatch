@@ -182,7 +182,21 @@ final class RequestService
         ];
     }
 
-    public static function publicView(array $row, ?array $requester): array
+    /**
+     * Member-safe location labels for feed cards (no coordinates).
+     */
+    public static function locationView(array $row): ?array
+    {
+        return self::presentLocation($row);
+    }
+
+    /**
+     * Request serializer. Exact coordinates stay internal: they are
+     * included only for the owning requester (who chose the facility
+     * location); officers, admins, and any other reader receive location
+     * labels plus the feed/match approximate distances only.
+     */
+    public static function publicView(array $row, ?array $requester, bool $isOwner = false): array
     {
         return [
             'id' => (int) $row['id'],
@@ -194,8 +208,8 @@ final class RequestService
             'quantity_units' => (int) $row['quantity_units'],
             'facility_name' => (string) $row['facility_name'],
             'location' => self::presentLocation($row),
-            'latitude' => $row['latitude'] !== null ? (float) $row['latitude'] : null,
-            'longitude' => $row['longitude'] !== null ? (float) $row['longitude'] : null,
+            'latitude' => $isOwner && $row['latitude'] !== null ? (float) $row['latitude'] : null,
+            'longitude' => $isOwner && $row['longitude'] !== null ? (float) $row['longitude'] : null,
             'urgency' => (string) $row['urgency'],
             'needed_datetime' => (string) $row['needed_datetime'],
             'status' => (string) $row['status'],

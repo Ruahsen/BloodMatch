@@ -86,13 +86,13 @@ export default function AdminDashboardPage() {
 
         <div className="metric-card">
           <span className="metric-label">Active OPEN Requests</span>
-          <span className="metric-value">{overview.open_requests || 0}</span>
-          <span className="metric-sub">{overview.total_units_needed || 0} units needed</span>
+          <span className="metric-value">{overview.active_open_requests || 0}</span>
+          <span className="metric-sub">{overview.open_units_needed || 0} units needed</span>
         </div>
 
         <div className="metric-card">
           <span className="metric-label">Fulfillment Rate</span>
-          <span className="metric-value">{overview.fulfillment_rate !== undefined ? `${overview.fulfillment_rate}%` : '0%'}</span>
+          <span className="metric-value">{overview.fulfillment_rate_percent !== undefined ? `${overview.fulfillment_rate_percent}%` : '0%'}</span>
           <span className="metric-sub">Resolved requests</span>
         </div>
       </section>
@@ -110,30 +110,30 @@ export default function AdminDashboardPage() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-1)', fontSize: '0.875rem' }}>
                 <span><strong>Fulfillment Rate</strong></span>
-                <span style={{ fontWeight: 700 }}>{overview.fulfillment_rate || 0}% ({overview.fulfilled_requests || 0} fulfilled)</span>
+                <span style={{ fontWeight: 700 }}>{overview.fulfillment_rate_percent || 0}% ({overview.fulfilled_requests || 0} fulfilled)</span>
               </div>
               <div style={{ height: '8px', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, overview.fulfillment_rate || 0)}%`, height: '100%', background: 'var(--color-accent)' }} />
+                <div style={{ width: `${Math.min(100, overview.fulfillment_rate_percent || 0)}%`, height: '100%', background: 'var(--color-accent)' }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-1)', fontSize: '0.875rem' }}>
                 <span><strong>Cancellation Rate</strong></span>
-                <span style={{ fontWeight: 700 }}>{overview.cancellation_rate || 0}% ({overview.cancelled_requests || 0} cancelled)</span>
+                <span style={{ fontWeight: 700 }}>{overview.cancellation_rate_percent || 0}% ({overview.cancelled_requests || 0} cancelled)</span>
               </div>
               <div style={{ height: '8px', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, overview.cancellation_rate || 0)}%`, height: '100%', background: 'var(--color-text-muted)' }} />
+                <div style={{ width: `${Math.min(100, overview.cancellation_rate_percent || 0)}%`, height: '100%', background: 'var(--color-text-muted)' }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-1)', fontSize: '0.875rem' }}>
                 <span><strong>Expiration Rate</strong></span>
-                <span style={{ fontWeight: 700 }}>{overview.expiration_rate || 0}% ({overview.expired_requests || 0} expired)</span>
+                <span style={{ fontWeight: 700 }}>{overview.expiration_rate_percent || 0}% ({overview.expired_requests || 0} expired)</span>
               </div>
               <div style={{ height: '8px', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, overview.expiration_rate || 0)}%`, height: '100%', background: 'var(--color-danger)' }} />
+                <div style={{ width: `${Math.min(100, overview.expiration_rate_percent || 0)}%`, height: '100%', background: 'var(--color-danger)' }} />
               </div>
             </div>
 
@@ -190,24 +190,16 @@ export default function AdminDashboardPage() {
             <thead>
               <tr>
                 <th>Chapter & Municipality</th>
-                <th>Members</th>
-                <th>Officers</th>
-                <th>Donors (Avail / Total)</th>
+                <th>Enrolled Donors</th>
                 <th>Active Requests</th>
-                <th>Pending Triage</th>
-                <th>Fulfillment Rate</th>
               </tr>
             </thead>
             <tbody>
               {chaptersSummary.map((ch) => (
-                <tr key={ch.chapter_id}>
-                  <td><strong>{ch.chapter_name}</strong> <span className="muted">({ch.municipality})</span></td>
-                  <td>{ch.members_count}</td>
-                  <td>{ch.officers_count}</td>
-                  <td><strong>{ch.available_donors}</strong> / {ch.enrolled_donors}</td>
-                  <td><span className="badge badge-open">{ch.open_requests} ({ch.units_needed}u)</span></td>
-                  <td>{ch.pending_verifications} verif · {ch.pending_confirmations} conf</td>
-                  <td><strong>{ch.fulfillment_rate}%</strong></td>
+                <tr key={ch.id}>
+                  <td><strong>{ch.name}</strong> <span className="muted">({ch.municipality})</span></td>
+                  <td>{ch.enrolled_donors}</td>
+                  <td><span className="badge badge-open">{ch.open_requests} ({ch.total_units_needed}u)</span></td>
                 </tr>
               ))}
             </tbody>

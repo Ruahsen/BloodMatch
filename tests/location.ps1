@@ -54,12 +54,17 @@ function Login($email) {
     $csrf = Get-Csrf $s
     $r = Invoke-Json $s 'Post' '/api/login' @{ email = $email; password = 'Str0ngPass1' } $csrf
     if ($r.status -ne 200) { throw "login failed for $email ($($r.status))" }
+    # Server rotates CSRF at the login privilege boundary: adopt the fresh
+    # token from the login response (falls back to an explicit re-fetch).
+    $csrf = $r.body.data.csrf_token
+    if ([string]::IsNullOrEmpty($csrf)) { $csrf = Get-Csrf $s }
     return @{ s = $s; csrf = $csrf }
 }
 
 function New-FixtureUser($email, $name, $chapterId, $vs, $bloodType) {
     $hash = & $PhpPath -r "echo password_hash('Str0ngPass1', PASSWORD_BCRYPT);"
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, date_of_birth) VALUES ('$email', '$hash', '$name', 'member', $chapterId, '$vs', 'active', '$bloodType', 'self_reported', '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, date_of_birth, email_verified_at) VALUES ('$email', '$hash', '$name', 'member', $chapterId, '$vs', 'active', '$bloodType', 'self_reported', '1995-06-15', UTC_TIMESTAMP());"
+    # Fixtures bypass /api/register by construction: grandfather-equivalent (migration 021).
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -152,7 +157,7 @@ if ($r.status -eq 200 -and [int]$mat -ge 1 -and $coords -like '14.683333*|120.53
 } else { Bad 'L12' "got $($r.status) mat=$mat coords=$coords" }
 
 # --- L13 member-facing APIs expose no raw coordinates ---
-$r = Invoke-Json $mem.s 'Get' "/api/requests/$reqId/matches" $null $mem.csrf
+$r = Invoke-Json $mem.s 'Get' "/api/requests/$reqId/matches?page=1&page_size=200" $null $mem.csrf
 $forbidden = 'latitude|"phone"|"email"|password|document'
 if ($r.status -eq 200 -and $r.raw -notmatch $forbidden -and $r.raw -match 'approximate_distance_km') {
     Ok 'L13 match results privacy-safe (no raw coordinates)'
@@ -160,7 +165,7 @@ if ($r.status -eq 200 -and $r.raw -notmatch $forbidden -and $r.raw -match 'appro
 
 # --- L14 legacy record (coords, no location_id) still matches ---
 # (legacy donor created up-front so request creation included it)
-$r = Invoke-Json $mem.s 'Get' "/api/requests/$reqId/matches" $null $mem.csrf
+$r = Invoke-Json $mem.s 'Get' "/api/requests/$reqId/matches?page=1&page_size=200" $null $mem.csrf
 $legEntry = @($r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$legId" })
 if ($legEntry.Count -eq 1 -and $null -ne $legEntry[0].approximate_distance_km) {
     Ok 'L14 legacy coords-only donor still matched with distance'
@@ -197,7 +202,7 @@ $r = Invoke-Json $mem.s 'Post' '/api/requests' @{
     required_blood_type='O+'; facility_name='Orani Reorder Clinic'; needed_datetime=$future; location_id=$oraniLocId
 } $mem.csrf
 $reReqId = $r.body.data.request.id
-$r = Invoke-Json $mem.s 'Get' "/api/requests/$reReqId/matches" $null $mem.csrf
+$r = Invoke-Json $mem.s 'Get' "/api/requests/$reReqId/matches?page=1&page_size=200" $null $mem.csrf
 $order1 = @($r.body.data.matches | ForEach-Object { $_.donor_reference })
 $aFirst = [array]::IndexOf($order1, "donor-$aId") -lt [array]::IndexOf($order1, "donor-$bId")
 $genBefore = DbQuery "SELECT generation FROM matches WHERE request_id=$reReqId AND donor_id=$aId;"
@@ -205,7 +210,7 @@ $notifBefore = DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$aId AN
 if ($aFirst) { Ok 'L17 nearer donor (Samal) ranks before farther donor (Abucay)' } else { Bad 'L17' "order=$($order1 -join ',')" }
 $r = Invoke-Json $a.s 'Put' '/api/profile' @{ full_name = 'Donor Alpha'; location_id = $marivelesLocId } $a.csrf
 $hasRefresh = ($r.body.data.matches_refreshed -contains $reReqId)
-$r = Invoke-Json $mem.s 'Get' "/api/requests/$reReqId/matches" $null $mem.csrf
+$r = Invoke-Json $mem.s 'Get' "/api/requests/$reReqId/matches?page=1&page_size=200" $null $mem.csrf
 $order2 = @($r.body.data.matches | ForEach-Object { $_.donor_reference })
 $bFirst = [array]::IndexOf($order2, "donor-$bId") -lt [array]::IndexOf($order2, "donor-$aId")
 $aDist = ($r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$aId" }).approximate_distance_km

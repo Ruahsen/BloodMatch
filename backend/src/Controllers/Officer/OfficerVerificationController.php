@@ -105,20 +105,21 @@ final class OfficerVerificationController
         $body = Request::json();
         $decision = Request::str('decision', $body);
         $reason = Request::str('reason', $body);
-        $acceptDonorCard = !empty($body['accept_donor_card']);
-
-        if (!in_array($decision, ['verified', 'rejected'], true)) {
-            throw new ValidationException([
-                'decision' => ['Decision must be "verified" or "rejected".'],
-            ]);
-        }
-        if ($reason !== null && mb_strlen($reason) > 500) {
-            throw new ValidationException([
-                'reason' => ['Reason must be at most 500 characters.'],
-            ]);
-        }
+        // Strict boolean coercion: the string "false" must not count as
+        // acceptance (matches MatchesController consent handling).
+        $acceptDonorCard = AuthService::isPrivacyAcknowledged($body['accept_donor_card'] ?? null);
 
         try {
+            if (!in_array($decision, ['verified', 'rejected'], true)) {
+                throw new ValidationException([
+                    'decision' => ['Decision must be "verified" or "rejected".'],
+                ]);
+            }
+            if ($reason !== null && mb_strlen($reason) > 500) {
+                throw new ValidationException([
+                    'reason' => ['Reason must be at most 500 characters.'],
+                ]);
+            }
             $result = (new VerificationService())->decide(
                 $actor,
                 (int) $params['userId'],
@@ -126,6 +127,9 @@ final class OfficerVerificationController
                 $reason,
                 $acceptDonorCard
             );
+        } catch (ValidationException $e) {
+            Response::error($e->getMessage(), 400, $e->errors());
+            return;
         } catch (\RuntimeException $e) {
             $code = $e->getCode();
             Response::error($e->getMessage(), $code >= 400 && $code <= 499 ? $code : 500);

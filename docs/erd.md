@@ -1,6 +1,6 @@
 # BloodMatch — Entity Relationship Diagram (ERD) — Implemented Schema
 
-> **Source of truth:** `database/migrations/001–016` applied to `bloodmatch_dev` (MariaDB 10.4 / XAMPP, port 3307). Verified 2026-08-27 for 001–014 and 2026-09-24 for 015–016 via `SHOW CREATE TABLE`, `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` and `database/run_migrations.php` (16 applied, re-run 0). Historical Phase-17 revision documented 001–014 only (see `docs/test-log-phase17.md`); this file supersedes it for the current 001–016 schema.
+> **Source of truth:** `database/migrations/001–021` applied to `bloodmatch_dev` (MariaDB 10.4 / XAMPP, port 3307). Verified 2026-08-27 for 001–014, 2026-09-24 for 015–016, on the feed implementation date for 017, 2026-10-01 for 018, 2026-10-07 for 019–021 via `SHOW CREATE TABLE`, `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` and `database/run_migrations.php` (21 applied, re-run 0). Historical Phase-17 revision documented 001–014 only (see `docs/test-log-phase17.md`); this file supersedes it for the current 001–021 schema.
 
 ---
 
@@ -18,6 +18,8 @@ erDiagram
     bataan_locations ||--o{ users : "locates"
     bataan_locations ||--o{ blood_requests : "locates"
     users ||--o{ password_resets : "resets"
+    users ||--o{ email_verification_otps : "otp_challenges"
+    users ||--o{ email_otp_claim_tokens : "otp_claims"
     users ||--o{ audit_log : "actor_of"
     users ||--o{ member_documents : "owns"
     users ||--o{ verification_decisions : "target_of"
@@ -64,8 +66,29 @@ erDiagram
         VARCHAR profile_picture
         ENUM account_status
         DATETIME deactivated_at
+        DATETIME email_verified_at
+        INT session_version
         TIMESTAMP created_at
         TIMESTAMP updated_at
+    }
+
+    email_verification_otps {
+        BIGINT id PK
+        BIGINT user_id FK
+        CHAR otp_hash
+        DATETIME expires_at
+        INT attempt_count
+        DATETIME used_at
+        TIMESTAMP created_at
+    }
+
+    email_otp_claim_tokens {
+        BIGINT id PK
+        BIGINT user_id FK
+        CHAR token_hash UK
+        DATETIME expires_at
+        DATETIME used_at
+        TIMESTAMP created_at
     }
 
     password_resets {
@@ -160,6 +183,8 @@ erDiagram
         ENUM status
         DECIMAL distance_km
         DECIMAL rank_score
+        TINYINT donor_share_consent
+        TINYINT requester_share_consent
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
@@ -190,8 +215,8 @@ erDiagram
         VARCHAR body
         VARCHAR related_type
         BIGINT related_id
-        VARCHAR dedup_key
-        INT generation
+        VARCHAR dedup_key NOT NULL
+        INT generation NOT NULL
         DATETIME emailed_at
         DATETIME read_at
         TIMESTAMP created_at
@@ -213,10 +238,19 @@ erDiagram
 Fixed reference data for the 3 Bataan chapters (Mt. Samat — Orani, Mt. Tarak — Mariveles, Meridian Heights — Balanga City). Seeded once via `001_chapters.sql` with `ON DUPLICATE KEY UPDATE`; not admin-manageable.
 
 **users**
-Stores member, Chapter Officer and System Administrator accounts, including email (login identity), password hash, role, chapter assignment, verification and account status, blood type and provenance, donor enrollment and availability, last verified donation time, canonical location (`location_id` FK → `bataan_locations`, backend-resolved `latitude`/`longitude`), profile picture reference (`profile_picture` 64-hex, NULL when none, migration 015), and timestamps.
+Stores member, Chapter Officer and System Administrator accounts, including email (login identity), password hash, role, chapter assignment, verification and account status, email-ownership proof (`email_verified_at`, migration 019 — orthogonal to `verification_status`/`account_status`; never implies donor/officer/medical verification), blood type and provenance, donor enrollment and availability, last verified donation time, canonical location (`location_id` FK → `bataan_locations`, backend-resolved `latitude`/`longitude`), profile picture reference (`profile_picture` 64-hex, NULL when none, migration 015), and timestamps.
 
 **password_resets**
 Stores hashed single-use reset tokens (`token_hash` CHAR(64) SHA-256 hex, `expires_at` ~30 min, `used_at` for single-use) linked to a user.
+
+**email_verification_otps** (migration 019)
+Stores hashed single-use email-ownership challenges (`otp_hash` CHAR(64) SHA-256 hex of a 6-digit code, `expires_at` 10 min, `attempt_count` max 5, `used_at` for single-use/exhaustion) linked to a user. Separate table from `password_resets` by design: reset tokens and OTP codes are never interchangeable. Only one usable row per user exists at a time (new sends delete prior unused rows).
+
+**email_otp_claim_tokens** (migration 020)
+Single-purpose registration-journey credentials (`token_hash` CHAR(64) UNIQUE SHA-256 hex of a 64-hex token, `expires_at` ~30 min, `used_at` single-use) linked to a user. Authorizes OTP send/verify/status for the still-logged-out registrant only — never a session, never any other endpoint. Consumed on successful verification; resends reuse the live token.
+
+**Login gate & grandfathering (migration 021, no schema change)**
+`POST /api/login` rejects accounts with `email_verified_at IS NULL` (403 `email_verification_required`, no session). Migration 021 backfilled the marker (`email_verified_at = created_at`) for all pre-mandatory-OTP rows — a grandfather marker, not proof of verification. Accounts created afterwards start NULL and must verify before login.
 
 **audit_log**
 Immutable append-only trail of security and operational events (`actor_id`, `action`, polymorphic `target_type`/`target_id`, `context` JSON, millisecond `created_at`). Updates and deletes are blocked by database triggers.
@@ -239,8 +273,8 @@ Canonical Bataan location reference for user-friendly proximity ranking: 12 PSGC
 **compatibility_matrix**
 Standalone lookup of red-cell ABO/Rh compatibility: `recipient_type` PK (8 types) with CSV `allowed_donor_types`. No foreign keys; sole consumer is `BloodCompatibilityService`.
 
-**matches**
-Links a blood request to an eligible donor. One persistent row per `(request_id, donor_id)` unique pair with `generation`, status (`POTENTIAL`→`CLOSED`), Haversine `distance_km` and `rank_score` (Compatibility → Availability → Verification → Proximity).
+**matches** (migration 017)
+Links a blood request to an eligible donor. One persistent row per `(request_id, donor_id)` unique pair with `generation`, status (`POTENTIAL`/`NOTIFIED`/`RESPONDED`/`ACCEPTED`/`COMPLETED`/`CLOSED`/`WITHDRAWN`), Haversine `distance_km` and `rank_score` (Compatibility → Availability → Verification → Proximity), plus per-match bilateral contact-sharing flags `donor_share_consent`/`requester_share_consent` (`TINYINT(1)` default 0; emails stay in `users`, read live via the protected contact endpoint). `WITHDRAWN` is terminal for its pair and is never resurrected by regeneration; `CLOSED`→`POTENTIAL` resurrection resets both consent flags.
 
 **donation_reports**
 Donor report of a completed donation linked canonically to `matches.id` (`match_id`) and to the donor; `confirmed_by` references the reviewing officer. Request is derived via `matches.request_id` — no duplicate column.
@@ -260,6 +294,8 @@ Runner bookkeeping (`name` PK, `applied_at`) managed by `database/run_migrations
 
 - **One chapter has many users;** a user may belong to one chapter (admins may be `NULL`) — `users.chapter_id → chapters.id` `ON UPDATE CASCADE`.
 - **One user has many password resets;** the same token hash is globally unique — `password_resets.user_id → users.id` `ON DELETE CASCADE`, `UNIQUE(token_hash)`.
+- **One user has many email OTP challenges;** at most one is usable at a time (application-enforced supersession) — `email_verification_otps.user_id → users.id` `ON DELETE CASCADE`.
+- **One user has many email OTP claim tokens over time;** at most one is live at a time — `email_otp_claim_tokens.user_id → users.id` `ON DELETE CASCADE`, `UNIQUE(token_hash)`.
 - **One user (as actor) has many audit logs;** logs survive user deletion (`SET NULL`), target is polymorphic — `audit_log.actor_id → users.id`.
 - **One user has many member documents;** document stored name is globally unique — `member_documents.user_id → users.id` `CASCADE`, `UNIQUE(stored_name)`.
 - **One user (as member) has many verification decisions as target;** one user (as officer) has many decisions as reviewer (`SET NULL` on officer delete) — `verification_decisions.target_user_id`/`officer_id → users.id`.
@@ -287,7 +323,7 @@ Runner bookkeeping (`name` PK, `applied_at`) managed by `database/run_migrations
 
 **Triggers:** `audit_log_block_update` / `audit_log_block_delete` `BEFORE` triggers `SIGNAL 45000` enforce append-only (verified `UPDATE`/`DELETE` rejected).
 
-**Indexes (beyond PK/FK):** `users` (`role`, `verification_status`, `account_status`, `donor_availability`), `password_resets` (`expires_at`), `audit_log` (`action`, `created_at`, `target_type,target_id`), `member_documents` (`user_id,doc_type`), `verification_decisions` (`target_user_id`, `officer_id`), `blood_requests` (`status`, `status+needed_datetime`, `urgency`), `matches` (`request_id,generation`, `status`, `donor_id`), `donation_reports` (`match_id`, `donor_id`, `status`), `notifications` (`user_id,read_at`, `type`). **014** adds composites `blood_requests(request_chapter_id, status, created_at)` and `audit_log(target_type, target_id, created_at)`.
+**Indexes (beyond PK/FK):** `users` (`role`, `verification_status`, `account_status`, `donor_availability`), `password_resets` (`expires_at`), `email_verification_otps` (`user_id`, `expires_at`), `email_otp_claim_tokens` (`user_id`, `expires_at`), `audit_log` (`action`, `created_at`, `target_type,target_id`), `member_documents` (`user_id,doc_type`), `verification_decisions` (`target_user_id`, `officer_id`), `blood_requests` (`status`, `status+needed_datetime`, `urgency`), `matches` (`request_id,generation`, `status`, `donor_id`), `donation_reports` (`match_id`, `donor_id`, `status`), `notifications` (`user_id,read_at`, `type`). **014** adds composites `blood_requests(request_chapter_id, status, created_at)` and `audit_log(target_type, target_id, created_at)`. **017** adds `matches(request_id, status)` for capacity counting under row locking. **018** adds `matches(donor_id, status)` for per-donor feed/match-tab lookups and `donation_reports(match_id, status)` for the atomic pending-report guard.
 
 **Polymorphic / Logical References (documented as non-FK):** `audit_log.target_type`/`target_id` (`VARCHAR(60/64)`, no FK) and `notifications.related_type`/`related_id` (`VARCHAR(40)`/`BIGINT UNSIGNED`, `NULL`, no FK) are application-level polymorphic pointers; do not draw as FK in the ERD.
 
@@ -299,12 +335,13 @@ Runner bookkeeping (`name` PK, `applied_at`) managed by `database/run_migrations
 
 ## Schema Verification
 
-- **Tables verified:** 15 `INFORMATION_SCHEMA.TABLES` rows in `bloodmatch_dev`: `audit_log`, `auth_throttle`, `bataan_locations`, `blood_requests`, `chapters`, `compatibility_matrix`, `donation_reports`, `matches`, `member_documents`, `notifications`, `password_resets`, `schema_migrations`, `system_settings`, `users`, `verification_decisions` — 14 domain + 1 bookkeeping. All 14 domain tables match migrations 001–013 + 015–016 (plus 014 indexes).
-- **Relationships verified (16 FKs):** via `SHOW CREATE TABLE` and `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` — listed above (14 pre-016 + `fk_users_location`, `fk_requests_location`) — all `CASCADE`/`SET NULL` actions as documented.
+- **Tables verified:** 17 `INFORMATION_SCHEMA.TABLES` rows in `bloodmatch_dev`: `audit_log`, `auth_throttle`, `bataan_locations`, `blood_requests`, `chapters`, `compatibility_matrix`, `donation_reports`, `email_otp_claim_tokens`, `email_verification_otps`, `matches`, `member_documents`, `notifications`, `password_resets`, `schema_migrations`, `system_settings`, `users`, `verification_decisions` — 16 domain + 1 bookkeeping. All 16 domain tables match migrations 001–013 + 015–017 + 019–020 (plus 014 indexes).
+- **Relationships verified (18 FKs):** via `SHOW CREATE TABLE` and `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` — listed above (14 pre-016 + `fk_users_location`, `fk_requests_location`, `fk_email_otp_user`, `fk_email_otp_claim_user`) — all `CASCADE`/`SET NULL` actions as documented.
 - **Polymorphic / logical references:** 2 pairs (`audit_log` target, `notifications` related) verified as non-FK `VARCHAR`/`BIGINT` nullable, no constraints.
 - **Discrepancies corrected:** historical Phase-17 `docs/erd.md` documented only `001–014` (prior revision 001–013 ASCII sketch, omitted 014 composites, used descriptive types). Corrected here to full `001–016` with exact types, FK actions, CHECKs, triggers and Mermaid, including `users.profile_picture` (015), `users.location_id` / `blood_requests.location_id` + `bataan_locations` (016).
 - **Live checks:** `D:\xampp\mysql\bin\mysql.exe -h 127.0.0.1 -P 3307 -u root -N -B -e "SHOW CREATE TABLE users\G"` / `KEY_COLUMN_USAGE` / `run_migrations.php` re-run 0 applied; FK violation → `ERROR 1452`, CHECK violation → `ERROR 4025`, audit `UPDATE`/`DELETE` → `ERROR 45000` as expected.
 - **Migrations 015–016:** `users.profile_picture` nullable 64-hex verified via `tests/profile_picture.ps1` (P07 64-hex row check); `bataan_locations` (249 rows: 12 + 237) plus location FKs verified via `run_migrations.php` and `tests/location.ps1` (20/20, L01–L20).
+- **Migration 017:** `matches.status` ENUM extended with `ACCEPTED`/`WITHDRAWN`, `donor_share_consent`/`requester_share_consent` (`TINYINT(1)` default 0), index `matches(request_id, status)` — verified via `SHOW COLUMNS`/`SHOW INDEX` and `tests/feed.ps1` (F1–F26).
 
 ---
 

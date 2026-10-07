@@ -515,8 +515,8 @@ button.mobile-link:hover:not(:disabled) {
 .site-footer-inner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
+  justify-content: flex-end;
+  text-align: right;
   padding: var(--space-4);
   width: 100%;
 }
@@ -1674,4 +1674,65 @@ tbody tr:hover { background: var(--color-surface-hover); }
   .privacy-modal-header { gap: var(--space-2); }
   .privacy-scroll { max-height: 52vh; padding: var(--space-3); }
   .check-row label { font-size: 0.875rem; }
+}
+
+/* ==========================================================================
+   Home feed: stream + rail (BloodMatch-native, no social mechanics)
+   ========================================================================== */
+.feed-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-6);
+  align-items: start;
+}
+.feed-stream { display: flex; flex-direction: column; min-width: 0; }
+.feed-tabs {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-4);
+}
+.feed-tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: var(--space-2) var(--space-1);
+  min-height: 44px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.feed-tab:hover { color: var(--color-text); }
+.feed-tab[aria-pressed="true"] {
+  color: var(--color-text);
+  border-bottom-color: var(--color-text);
+  font-weight: 600;
+}
+.feed-tab:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.feed-tab-count {
+  font-weight: 600;
+  color: inherit;
+}
+.feed-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  position: sticky;
+  top: calc(var(--space-4) + 56px);
+}
+.feed-rail details.card summary { list-style: none; }
+.feed-rail details.card summary::-webkit-details-marker { display: none; }
+@media (max-width: 900px) {
+  .feed-layout { grid-template-columns: 1fr; }
+  .feed-rail { position: static; order: -1; }
 }

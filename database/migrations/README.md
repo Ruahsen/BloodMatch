@@ -6,7 +6,7 @@ Rules:
 - Never edit an already-applied migration; add a new one
 - No credentials or real personal data in any migration
 
-Current migration state: 001–016 applied (verified via `run_migrations.php`; see `docs/erd.md` and `docs/test-log-location.md`).
+Current migration state: 001–018 applied (verified via `run_migrations.php`; see `docs/erd.md` and `docs/test-log-remediation.md`).
 
 | Migration | Purpose |
 |---|---|
@@ -26,3 +26,5 @@ Current migration state: 001–016 applied (verified via `run_migrations.php`; s
 | `014_performance_indexes.sql` | Composite indexes `blood_requests(request_chapter_id, status, created_at)`, `audit_log(target_type, target_id, created_at)` |
 | `015_create_profile_picture.sql` | `users.profile_picture VARCHAR(64) NULL` — 64-hex server-generated filename in `backend/storage/profile_pictures`, NULL when none |
 | `016_location_reference.sql` | `bataan_locations` canonical reference (12 municipalities + 237 barangays, PSGC 030800000) + `users.location_id` / `blood_requests.location_id` FKs (`ON UPDATE CASCADE`, `ON DELETE SET NULL`); `latitude`/`longitude` retained as backend-resolved reference coordinates |
+| `017_match_lifecycle_feed.sql` | Feed match lifecycle: `matches.status` += `ACCEPTED`/`WITHDRAWN`, per-match `donor_share_consent`/`requester_share_consent` (`TINYINT(1)` default 0), index `matches(request_id, status)` |
+| `018_remediation_hardening.sql` | Remediation hardening: `users.session_version` (session revocation epoch); backfill + `NOT NULL` on `notifications.dedup_key`/`generation` (dedup by schema); indexes `matches(donor_id, status)` and `donation_reports(match_id, status)` |

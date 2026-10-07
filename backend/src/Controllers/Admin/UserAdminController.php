@@ -89,20 +89,36 @@ final class UserAdminController
             }
         }
 
+        // Last-admin guard: the system must always retain at least one
+        // active administrator.
+        if ((string) $target['role'] === 'admin' && $role !== 'admin'
+            && (string) $target['account_status'] === 'active'
+            && $repo->countActiveAdmins($targetId) === 0) {
+            Response::error('This is the last active administrator. Assign another admin first.', 409);
+            return;
+        }
+
         try {
             $repo->setRoleAndChapter($targetId, $role, $role === 'officer'
                 ? ($chapterId ?? (int) $target['chapter_id'])
                 : ($chapterId ?? ($target['chapter_id'] !== null ? (int) $target['chapter_id'] : null)));
+            // Privilege change revokes existing sessions of the target.
+            $repo->bumpSessionVersion($targetId);
         } catch (\Throwable $e) {
             Response::error('Could not update role.', 500);
             return;
         }
 
-        AuditLogger::log($actorId, 'admin.user.role_changed', 'user', (string) $targetId, [
-            'from_role' => (string) $target['role'],
-            'to_role' => $role,
-            'chapter_id' => $chapterId,
-        ]);
+        try {
+            AuditLogger::logCritical($actorId, 'admin.user.role_changed', 'user', (string) $targetId, [
+                'from_role' => (string) $target['role'],
+                'to_role' => $role,
+                'chapter_id' => $chapterId,
+            ]);
+        } catch (\RuntimeException $e) {
+            Response::error('Role updated, but the audit trail could not be recorded.', 500);
+            return;
+        }
 
         Response::success(['user' => (new AuthService())->publicUser($repo->findById($targetId))]);
     }
@@ -155,11 +171,18 @@ final class UserAdminController
         }
 
         $repo->setChapter($targetId, $chapterId);
+        // Chapter scope change revokes existing sessions of the target.
+        $repo->bumpSessionVersion($targetId);
 
-        AuditLogger::log($actorId, 'admin.user.chapter_assigned', 'user', (string) $targetId, [
-            'from_chapter_id' => $target['chapter_id'],
-            'to_chapter_id' => $chapterId,
-        ]);
+        try {
+            AuditLogger::logCritical($actorId, 'admin.user.chapter_assigned', 'user', (string) $targetId, [
+                'from_chapter_id' => $target['chapter_id'],
+                'to_chapter_id' => $chapterId,
+            ]);
+        } catch (\RuntimeException $e) {
+            Response::error('Chapter updated, but the audit trail could not be recorded.', 500);
+            return;
+        }
 
         Response::success(['user' => (new AuthService())->publicUser($repo->findById($targetId))]);
     }
@@ -203,15 +226,45 @@ final class UserAdminController
         $alreadyInState =
             ($status === 'deactivated' && (string) $target['account_status'] === 'deactivated')
             || ($status === 'active' && (string) $target['account_status'] === 'active');
+        // Last-admin guard applies to deactivation as well.
+        if ($status === 'deactivated'
+            && (string) $target['role'] === 'admin'
+            && (string) $target['account_status'] === 'active'
+            && $repo->countActiveAdmins($targetId) === 0) {
+            Response::error('This is the last active administrator. Assign another admin first.', 409);
+            return;
+        }
+
         if (!$alreadyInState) {
             $repo->setStatus($targetId, $status, $deactivatedAt);
-            $auditId = AuditLogger::log(
-                $actorId,
-                $status === 'deactivated' ? 'admin.user.deactivated' : 'admin.user.reactivated',
-                'user',
-                (string) $targetId,
-                ['previous_status' => (string) $target['account_status']]
-            );
+            // Status change revokes existing sessions of the target, so a
+            // deactivated user cannot continue on a previously issued cookie.
+            $repo->bumpSessionVersion($targetId);
+            try {
+                $auditId = AuditLogger::logCritical(
+                    $actorId,
+                    $status === 'deactivated' ? 'admin.user.deactivated' : 'admin.user.reactivated',
+                    'user',
+                    (string) $targetId,
+                    ['previous_status' => (string) $target['account_status']]
+                );
+            } catch (\RuntimeException $e) {
+                Response::error('Account status updated, but the audit trail could not be recorded.', 500);
+                return;
+            }
+
+            // Deactivation immediately cleans up live ACCEPTED relationships
+            // (either side): contact is revoked at once, the other principal
+            // is notified, COMPLETED/WITHDRAWN history is preserved.
+            if ($status === 'deactivated') {
+                $closedAccepted = (new \BloodMatch\Services\MatchDecisionService())
+                    ->closeAcceptedForInvalidatedUser($targetId, 'account_deactivated', $actorId);
+                if ($closedAccepted > 0) {
+                    AuditLogger::log($actorId, 'admin.user.deactivated_accepted_closed', 'user', (string) $targetId, [
+                        'closed_accepted' => $closedAccepted,
+                    ]);
+                }
+            }
 
             \BloodMatch\Services\NotificationService::notify(
                 $targetId,

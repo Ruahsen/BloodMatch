@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
@@ -17,8 +17,12 @@ export default function AdminAuditLogsPage() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [selectedContext, setSelectedContext] = useState(null)
+  // Monotonic sequence: a stale response must never overwrite newer state.
+  const seqRef = useRef(0)
 
   const load = useCallback(() => {
+    const seq = seqRef.current + 1
+    seqRef.current = seq
     setLoading(true)
     setError(null)
     const params = new URLSearchParams()
@@ -34,10 +38,13 @@ export default function AdminAuditLogsPage() {
 
     api.get(`/api/admin/audit-logs?${params.toString()}`)
       .then((res) => {
+        if (seqRef.current !== seq) return
         setData(res)
+        setError(null)
         setLoading(false)
       })
       .catch((err) => {
+        if (seqRef.current !== seq) return
         setError(err.message)
         setLoading(false)
       })
@@ -47,10 +54,10 @@ export default function AdminAuditLogsPage() {
     load()
   }, [load])
 
+  // State-only: the effect above issues the single page-1 request.
   const handleSearch = (e) => {
     e.preventDefault()
     setPage(1)
-    load()
   }
 
   const handleReset = () => {

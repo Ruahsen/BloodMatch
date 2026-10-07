@@ -37,6 +37,51 @@ final class PasswordResetRepository
         $stmt->execute([$nowUtc, $id]);
     }
 
+    /**
+     * Atomic single-use consumption: exactly one concurrent confirmer can
+     * win the token. Returns the token row on success, null otherwise.
+     */
+    public function consumeValidToken(string $tokenHash, string $nowUtc): ?array
+    {
+        $pdo = Database::pdo();
+        $sel = $pdo->prepare(
+            'SELECT id, user_id FROM password_resets
+              WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?
+              LIMIT 1'
+        );
+        $sel->execute([$tokenHash, $nowUtc]);
+        $row = $sel->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) {
+            return null;
+        }
+        $upd = $pdo->prepare(
+            'UPDATE password_resets SET used_at = ? WHERE id = ? AND used_at IS NULL'
+        );
+        $upd->execute([$nowUtc, (int) $row['id']]);
+        if ($upd->rowCount() !== 1) {
+            return null;
+        }
+        return $row;
+    }
+
+    public function countActiveForUser(int $userId, string $nowUtc): int
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT COUNT(*) FROM password_resets
+              WHERE user_id = ? AND used_at IS NULL AND expires_at > ?'
+        );
+        $stmt->execute([$userId, $nowUtc]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function deleteExpired(string $nowUtc): void
+    {
+        $stmt = Database::pdo()->prepare(
+            'DELETE FROM password_resets WHERE used_at IS NOT NULL OR expires_at <= ?'
+        );
+        $stmt->execute([$nowUtc]);
+    }
+
     public function deleteOtherUnused(int $userId, int $keepId): void
     {
         $stmt = Database::pdo()->prepare(

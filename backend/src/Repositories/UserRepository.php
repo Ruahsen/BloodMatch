@@ -16,12 +16,34 @@ final class UserRepository
             'SELECT id, email, full_name, phone, role, chapter_id, verification_status,
                     account_status, blood_type, blood_type_source, blood_type_verified,
                     date_of_birth, password_hash, donor_enrolled_at, donor_availability,
-                    last_verified_donation_at, profile_picture, location_id, latitude, longitude
+                    last_verified_donation_at, profile_picture, location_id, latitude, longitude,
+                    email_verified_at, session_version
              FROM users WHERE id = ? LIMIT 1'
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row === false ? null : $row;
+    }
+
+    public function findByIdForUpdate(int $id): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT id, email, full_name, phone, role, chapter_id, verification_status,
+                    account_status, blood_type, blood_type_source, blood_type_verified,
+                    date_of_birth, password_hash, donor_enrolled_at, donor_availability,
+                    last_verified_donation_at, profile_picture, location_id, latitude, longitude,
+                    email_verified_at, session_version
+             FROM users WHERE id = ? LIMIT 1 FOR UPDATE'
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
+    }
+
+    public function bumpSessionVersion(int $id): void
+    {
+        $stmt = Database::pdo()->prepare('UPDATE users SET session_version = session_version + 1 WHERE id = ?');
+        $stmt->execute([$id]);
     }
 
     public function findByEmail(string $email): ?array
@@ -87,6 +109,19 @@ final class UserRepository
     {
         $stmt = Database::pdo()->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
         $stmt->execute([$hash, $userId]);
+    }
+
+    public function countActiveAdmins(?int $excludeUserId = null): int
+    {
+        $sql = "SELECT COUNT(*) FROM users WHERE role = 'admin' AND account_status = 'active'";
+        $params = [];
+        if ($excludeUserId !== null) {
+            $sql .= ' AND id <> ?';
+            $params[] = $excludeUserId;
+        }
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
     }
 
     public function setRoleAndChapter(int $userId, string $role, ?int $chapterId): void
@@ -209,6 +244,14 @@ final class UserRepository
         $stmt->execute([$nowUtc, $userId]);
     }
 
+    public function clearDonorEnrollment(int $userId): void
+    {
+        $stmt = Database::pdo()->prepare(
+            'UPDATE users SET donor_enrolled_at = NULL, donor_availability = NULL WHERE id = ?'
+        );
+        $stmt->execute([$userId]);
+    }
+
     public function setAvailability(int $userId, string $availability): void
     {
         $stmt = Database::pdo()->prepare('UPDATE users SET donor_availability = ? WHERE id = ?');
@@ -227,6 +270,18 @@ final class UserRepository
     {
         $stmt = Database::pdo()->prepare('UPDATE users SET profile_picture = ? WHERE id = ?');
         $stmt->execute([$storedName, $userId]);
+    }
+
+    /**
+     * First verification wins: a re-verified email keeps its original
+     * timestamp. Orthogonal to verification_status / account_status.
+     */
+    public function setEmailVerifiedAt(int $userId, string $nowUtc): void
+    {
+        $stmt = Database::pdo()->prepare(
+            'UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?'
+        );
+        $stmt->execute([$nowUtc, $userId]);
     }
 
     public function pendingMembersByChapter(int $chapterId): array

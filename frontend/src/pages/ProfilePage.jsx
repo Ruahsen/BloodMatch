@@ -241,6 +241,18 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {profile.email_verified_at == null && (
+            <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-3)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+              <p style={{ fontWeight: 600, margin: '0 0 var(--space-2)' }}>Finish email verification</p>
+              <p className="muted" style={{ fontSize: '0.875rem', marginBottom: 'var(--space-3)' }}>
+                Email verification is part of registration: confirm you can access {profile.email} by entering
+                the 6-digit code we send you. This only proves email ownership — it never marks you as a
+                verified donor.
+              </p>
+              <Link to="/verify-email" className="btn btn-secondary">Verify email address</Link>
+            </div>
+          )}
+
           {profile.verification_status === 'rejected' && (
             <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-3)', border: '1px solid var(--color-danger-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-danger-subtle)' }}>
               <p style={{ color: 'var(--color-danger)', fontWeight: 600, margin: '0 0 var(--space-2)' }}>Verification Needs Attention</p>
@@ -284,7 +296,6 @@ export default function ProfilePage() {
                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                   onChange={(e) => setPictureFile(e.target.files[0] || null)}
                 />
-                <small className="field-hint">Shown beside your name in the navigation bar. Uploading a new picture replaces the existing one.</small>
               </div>
 
               <button type="submit" className="btn btn-secondary" disabled={pictureUploading} style={{ alignSelf: 'flex-start' }}>
@@ -410,11 +421,6 @@ export default function ProfilePage() {
 
             <div className="field" role="group" aria-labelledby="profile-location-heading">
               <span id="profile-location-heading" className="metric-label" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>Location in Bataan</span>
-              <small className="field-hint" style={{ display: 'block', marginBottom: 'var(--space-3)' }}>
-                Select your municipality or city and optionally your barangay. This helps BloodMatch prioritize
-                compatible donors who are closer to the blood request location. BloodMatch uses an approximate
-                geographic reference for proximity ranking, not your exact address.
-              </small>
               <LocationSelector
                 municipalityId="profile-municipality"
                 municipalityCode={location.municipality_code}

@@ -16,7 +16,7 @@ final class RegisterController
         $service = new AuthService();
 
         try {
-            $user = $service->register(\BloodMatch\Utils\Request::json());
+            $result = $service->register(\BloodMatch\Utils\Request::json());
         } catch (DuplicateEntryException $e) {
             Response::error($e->getMessage(), 409, ['email' => [$e->getMessage()]]);
             return;
@@ -25,6 +25,9 @@ final class RegisterController
             return;
         }
 
-        Response::success(['user' => $user], 201);
+        // The 201 payload carries the created user plus the automatic
+        // registration-time email-OTP block (masked address, expiry, and
+        // the single-purpose claim token). No session is created here.
+        Response::success($result, 201);
     }
 }

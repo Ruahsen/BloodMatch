@@ -31,6 +31,8 @@ export default function NotificationsPage() {
     try {
       await api.post(`/api/notifications/${id}/read`)
       await load()
+      // Sync the navbar badge immediately (no 30s staleness).
+      window.dispatchEvent(new Event('bloodmatch:unread-changed'))
     } catch (err) {
       setErrorAlert(err.message)
     }
@@ -40,6 +42,7 @@ export default function NotificationsPage() {
     try {
       await api.post('/api/notifications/read-all')
       await load()
+      window.dispatchEvent(new Event('bloodmatch:unread-changed'))
     } catch (err) {
       setErrorAlert(err.message)
     }
@@ -105,8 +108,18 @@ export default function NotificationsPage() {
             >
               <option value="">All Categories</option>
               <option value="match.new">Match Alerts</option>
+              <option value="match.responded">Donor Responses</option>
+              <option value="match.accepted">Acceptances</option>
+              <option value="match.withdrawn">Withdrawals</option>
+              <option value="match.unaccepted">Acceptance Withdrawals</option>
+              <option value="match.consent_revoked">Consent Revocations</option>
+              <option value="match.closed">Match Closures</option>
+              <option value="request.cancelled">Cancellations</option>
+              <option value="request.expired">Expirations</option>
+              <option value="request.fulfilled">Fulfillments</option>
               <option value="verification.decision">Verification Updates</option>
               <option value="donation.confirmed">Donation Confirmations</option>
+              <option value="donation.rejected">Donation Rejections</option>
               <option value="account.status_changed">Account Alerts</option>
             </select>
           </div>

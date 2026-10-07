@@ -29,19 +29,27 @@ final class DonationService
             ]);
             throw new RuntimeException('You can only report donations for your own matches.', 403);
         }
-        if ((string) $match['status'] !== 'RESPONDED') {
-            throw new RuntimeException('Only responded matches can receive a donation report.', 409);
+        if (!in_array((string) $match['status'], ['RESPONDED', 'ACCEPTED'], true)) {
+            throw new RuntimeException('Only responded or accepted matches can receive a donation report.', 409);
         }
         if ((string) $match['request_status'] !== 'OPEN') {
             throw new RuntimeException('This request is no longer active.', 409);
         }
 
-        $reports = new DonationReportRepository();
-        if ($reports->pendingExistsForMatch($matchId)) {
-            throw new RuntimeException('A donation report is already pending for this match.', 409);
+        // Donor must still hold a live account to file a report; deeper
+        // safety prerequisites are enforced at officer confirmation time
+        // (the donation itself already occurred at the facility).
+        $donor = (new UserRepository())->findById($donorId);
+        if ($donor === null || (string) $donor['account_status'] !== 'active') {
+            throw new RuntimeException('Your account is no longer active.', 403);
         }
 
-        $reportId = $reports->insert($matchId, $donorId, $note, AuthService::nowUtc());
+        // Atomic insert-if-no-pending: concurrent duplicate submits for the
+        // same match yield exactly one active PENDING report.
+        $reportId = (new DonationReportRepository())->insertIfNoPending($matchId, $donorId, $note, AuthService::nowUtc());
+        if ($reportId === null) {
+            throw new RuntimeException('A donation report is already pending for this match.', 409);
+        }
         AuditLogger::log($donorId, 'donation.reported', 'donation_report', (string) $reportId, [
             'match_id' => $matchId,
         ]);
@@ -77,10 +85,25 @@ final class DonationService
         $pdo->beginTransaction();
 
         try {
-            $row = (new DonationReportRepository())->findByIdForUpdate($reportId);
-            $match = (new MatchRepository())->findByIdForUpdate((int) $pre['match_id']);
+            // Consistent lock order everywhere: request row, then match row,
+            // then donation report row. Counts are read only after all locks
+            // are held so concurrent accept/confirm paths (which take the
+            // same request lock) cannot overshoot capacity.
+            $request = (new BloodRequestRepository())->findByIdForUpdate((int) $pre['request_id']);
+            if ($request === null) {
+                throw new RuntimeException('Donation report not found.', 404);
+            }
+            if ((string) $request['status'] !== 'OPEN') {
+                throw new RuntimeException('The related request is no longer active.', 409);
+            }
 
-            if ($row === null || $match === null) {
+            $match = (new MatchRepository())->findByIdForUpdate((int) $pre['match_id']);
+            if ($match === null || (int) $match['request_id'] !== (int) $pre['request_id']) {
+                throw new RuntimeException('Donation report not found.', 404);
+            }
+
+            $row = (new DonationReportRepository())->findByIdForUpdate($reportId);
+            if ($row === null) {
                 throw new RuntimeException('Donation report not found.', 404);
             }
 
@@ -88,10 +111,58 @@ final class DonationService
                 throw new RuntimeException("Report already decided (current: {$row['status']}).", 409);
             }
 
+            $displacedAccepted = [];
             if ($confirm) {
-                if ((string) $row['request_status'] !== 'OPEN') {
-                    throw new RuntimeException('The related request is no longer active.', 409);
+                // A confirmation must never resurrect an invalid match: only
+                // live RESPONDED/ACCEPTED relationships may complete. CLOSED,
+                // WITHDRAWN, POTENTIAL, and NOTIFIED rows are rejected here
+                // with no donation side effects (no timestamps, no standby,
+                // no fulfillment counting, no completion notification).
+                $matchStatus = (string) $match['status'];
+                if (!in_array($matchStatus, ['RESPONDED', 'ACCEPTED'], true)) {
+                    throw new RuntimeException(
+                        "Only responded or accepted matches can complete a donation (current: {$matchStatus}).",
+                        409
+                    );
                 }
+
+                // Safety/identity re-validation: an invalidated donor
+                // relationship (deactivated, unverified, unenrolled,
+                // incompatible, age-ineligible) must not complete. Scheduling
+                // rules (availability, standby, cooldown) govern future
+                // candidacy only and are intentionally not applied to a
+                // donation that already occurred at the facility.
+                $donor = (new UserRepository())->findByIdForUpdate((int) $row['donor_id']);
+                DonorEligibilityService::assertSafetyEligible(
+                    $donor,
+                    (string) $request['required_blood_type'],
+                    $endpoint
+                );
+
+                // Capacity: ACCEPTED -> COMPLETED keeps the committed sum
+                // unchanged; RESPONDED -> COMPLETED adds one unit, so the
+                // invariant COUNT(ACCEPTED) + COUNT(COMPLETED) <= quantity
+                // is enforced here under the request lock.
+                if ($matchStatus === 'RESPONDED') {
+                    $accepted = MatchRepository::countAccepted((int) $row['request_id']);
+                    $completed = MatchRepository::countCompleted((int) $row['request_id']);
+                    if ($accepted + $completed + 1 > (int) $request['quantity_units']) {
+                        AuditLogger::log((int) $actor['id'], 'match.capacity_full', 'blood_request', (string) $row['request_id'], [
+                            'endpoint' => $endpoint,
+                            'match_id' => (int) $row['match_id'],
+                            'accepted' => $accepted,
+                            'completed' => $completed,
+                        ]);
+                        throw new RuntimeException('This request already has enough committed donors for its required units.', 409);
+                    }
+                }
+
+                // Snapshot the other live ACCEPTED donors before fulfillment
+                // closes them, so each receives a clear closure notice.
+                $displacedAccepted = array_values(array_filter(
+                    (new MatchRepository())->listAcceptedDonors((int) $row['request_id']),
+                    static fn (array $a): bool => (int) $a['match_id'] !== (int) $row['match_id']
+                ));
 
                 (new DonationReportRepository())->markConfirmed($reportId, (int) $actor['id'], $nowUtc);
 
@@ -103,18 +174,25 @@ final class DonationService
 
                 $completed = MatchRepository::countCompleted((int) $row['request_id']);
                 $fulfilledNow = false;
-                if ($completed >= (int) $row['quantity_units']) {
+                if ($completed >= (int) $request['quantity_units']) {
                     $closedCount = MatchRepository::fulfillAndCloseUnresolved((int) $row['request_id']);
                     $fulfilledNow = true;
-                    AuditLogger::log((int) $actor['id'], 'request.fulfilled', 'blood_request', (string) $row['request_id'], [
+                    $fulfillAuditId = AuditLogger::log((int) $actor['id'], 'request.fulfilled', 'blood_request', (string) $row['request_id'], [
                         'completed_units' => $completed,
-                        'required_units' => (int) $row['quantity_units'],
+                        'required_units' => (int) $request['quantity_units'],
                         'closed_matches' => $closedCount,
                     ]);
                 }
             } else {
                 (new DonationReportRepository())->markRejected($reportId, (int) $actor['id'], $nowUtc);
             }
+
+            // Fail-closed: the report decision must not exist without its
+            // audit trail; a failed audit write rolls the decision back.
+            AuditLogger::logCritical((int) $actor['id'], $confirm ? 'donation.confirmed' : 'donation.rejected', 'donation_report', (string) $reportId, [
+                'donor_id' => (int) $pre['donor_id'],
+                'match_id' => (int) $pre['match_id'],
+            ]);
 
             $pdo->commit();
         } catch (Throwable $e) {
@@ -128,12 +206,6 @@ final class DonationService
             error_log('[donations] decision failed: ' . $e->getMessage());
             throw new RuntimeException('Could not process the donation report.', 500);
         }
-
-        $auditAction = $confirm ? 'donation.confirmed' : 'donation.rejected';
-        AuditLogger::log((int) $actor['id'], $auditAction, 'donation_report', (string) $reportId, [
-            'donor_id' => (int) $pre['donor_id'],
-            'match_id' => (int) $pre['match_id'],
-        ]);
 
         \BloodMatch\Services\NotificationService::notify(
             (int) $pre['donor_id'],
@@ -149,6 +221,43 @@ final class DonationService
                 'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
             ]
         );
+
+        // Fulfillment outreach: the requester learns the request is complete,
+        // and every other ACCEPTED donor whose live contact relationship was
+        // closed by fulfillment gets a clear notice (contact revoked).
+        if ($confirm && ($fulfilledNow ?? false)) {
+            $requesterId = (int) $request['requester_id'];
+            \BloodMatch\Services\NotificationService::notify(
+                $requesterId,
+                'request.fulfilled',
+                'Blood request fulfilled',
+                sprintf('Your blood request #%d has received all required units and is now fulfilled.', (int) $pre['request_id']),
+                [
+                    'related_type' => 'blood_request',
+                    'related_id' => (int) $pre['request_id'],
+                    'dedup_key' => \BloodMatch\Services\NotificationService::dedupRequestStatus((int) $pre['request_id'], 'fulfilled'),
+                    'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
+                ]
+            );
+            foreach ($displacedAccepted ?? [] as $displaced) {
+                \BloodMatch\Services\NotificationService::notify(
+                    (int) $displaced['donor_id'],
+                    'match.closed',
+                    'A blood request you were accepted for was fulfilled',
+                    sprintf('Blood request #%d received all required units and was fulfilled. Contact details are no longer available. Thank you for your willingness to donate.', (int) $pre['request_id']),
+                    [
+                        'related_type' => 'blood_request',
+                        'related_id' => (int) $pre['request_id'],
+                        'dedup_key' => \BloodMatch\Services\NotificationService::dedupMatchOccurrence(
+                            (int) $displaced['match_id'],
+                            'closed',
+                            $fulfillAuditId ?? null
+                        ),
+                        'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
+                    ]
+                );
+            }
+        }
 
         return [
             'decision' => $confirm ? 'CONFIRMED' : 'REJECTED',

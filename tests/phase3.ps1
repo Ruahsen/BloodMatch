@@ -77,6 +77,7 @@ if ($r.status -eq 201 -and $r.body.data.user.verification_status -eq 'pending' -
     Ok 'T02 register 201 + pending/active'
 } else { Bad 'T02' "got $($r.status): $($r.body.error.message)" }
 $uid1 = $r.body.data.user.id
+$claimToken1 = $r.body.data.email_otp.verification_token
 
 # --- T03 duplicate email ---
 $r = Post $s1 '/api/register' @{
@@ -126,9 +127,20 @@ if ($r.status -eq 401) { Ok 'T07 unknown email 401 uniform' } else { Bad 'T07' "
 $r = Post $s2 '/api/login' @{ email = $email1; password = 'WrongPass9' } $csrf2
 if ($r.status -eq 401) { Ok 'T08 wrong password 401' } else { Bad 'T08' "got $($r.status)" }
 
-# --- T09 successful login + session ---
+# --- T09 successful login + session (after mandatory email verification) ---
+# Login is gated on email_verified_at: complete the registration claim
+# journey first (code from the captured OTP email, no session needed).
+$capFile = Get-ChildItem -Path 'logs/mail-capture' -Filter '*.eml' |
+    Where-Object { $_.Name -match [regex]::Escape($email1) } |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$otpCode = ([regex]::Match((Get-Content $capFile.FullName -Raw), '(?m)^(\d{6})$')).Groups[1].Value
+$r = Post $s1 '/api/auth/email-otp/verify' @{ verification_token = $claimToken1; code = $otpCode } $csrf1
+if ($r.status -eq 200 -and $r.body.data.verified -eq $true) { Ok 'T09a registration email verified via claim' } else { Bad 'T09a' "got $($r.status)" }
 $r = Post $s2 '/api/login' @{ email = $email1; password = 'Str0ngPass1' } $csrf2
 if ($r.status -eq 200 -and $r.body.data.user.email -eq $email1) { Ok 'T09 login success' } else { Bad 'T09' "got $($r.status)" }
+# Server rotates CSRF at login: adopt the fresh token for later mutations.
+$csrf2 = $r.body.data.csrf_token
+if ([string]::IsNullOrEmpty($csrf2)) { $csrf2 = Get-Csrf $s2 }
 
 $r = GetReq $s2 '/api/auth/me'
 if ($r.status -eq 200 -and $r.body.data.user.id -eq $uid1 -and $r.body.data.user.verification_status -eq 'pending') {
@@ -168,6 +180,9 @@ $r = Post $s3 '/api/password-reset/confirm' @{ token = $plainToken; password = '
 if ($r.status -ne 200) { Bad 'T15a confirm' "got $($r.status)" } 
 $r = Post $s3 '/api/login' @{ email = $email1; password = 'Br4ndNew9' } $csrf3
 if ($r.status -eq 200) { Ok 'T15 reset completes; new password logs in' } else { Bad 'T15' "new-password login got $($r.status)" }
+# Login rotated CSRF: adopt the fresh token for the reuse probe below.
+$csrf3 = $r.body.data.csrf_token
+if ([string]::IsNullOrEmpty($csrf3)) { $csrf3 = Get-Csrf $s3 }
 $r = Post $s3 '/api/password-reset/confirm' @{ token = $plainToken; password = 'Again678x' } $csrf3
 if ($r.status -eq 400) { Ok 'T16 token single-use (reuse 400)' } else { Bad 'T16' "got $($r.status)" }
 $sOld = New-Object Microsoft.PowerShell.Commands.WebRequestSession

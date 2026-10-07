@@ -25,6 +25,12 @@
       "skillPath": ".agents/skills/impeccable/SKILL.md",
       "computedHash": "464b4d2c4a2a961a71684c0086cdcc226ba1635983f9cc6e6d3ca6362914b9cb"
     },
+    "security-review": {
+      "source": "getsentry/skills",
+      "sourceType": "github",
+      "skillPath": "skills/security-review/SKILL.md",
+      "computedHash": "57e404df6c743ec59b82ed5c1454a4a5234f5012e644ff7ffaa8beccfb1aba43"
+    },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
       "sourceType": "github",
