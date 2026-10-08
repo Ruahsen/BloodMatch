@@ -101,7 +101,7 @@ if ($deliveryFailed >= 1 && str_contains($regCtx, 'email_otp_delivered')) {
 // 5. The retry path works once mail recovers: Env::get consults $_ENV
 //    on every call, so restoring the real capture dir mid-process flips
 //    delivery back on. Resend through the SAME claim token, then verify
-//    the delivered code — the full register -> fail -> retry -> verified
+//    the delivered code - the full register -> fail -> retry -> verified
 //    journey in one process.
 $captureDir = dirname(__DIR__) . '/logs/mail-capture';
 $_ENV['MAIL_CAPTURE_DIR'] = $captureDir;

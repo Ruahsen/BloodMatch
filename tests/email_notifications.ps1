@@ -166,7 +166,7 @@ if ($MailCaptureDir -ne '') {
 }
 
 # -------------------------------------------
-# E3: deduplication — accept replay creates no second notification/email
+# E3: deduplication - accept replay creates no second notification/email
 # -------------------------------------------
 $acceptBefore = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donId AND type='match.accepted';")
 $r = Invoke-Json $reqAuth.s 'Post' "/api/matches/$matchId/accept" @{ requester_share_consent = $true } $reqAuth.csrf
@@ -178,7 +178,7 @@ if ([int]$acceptAfter -eq [int]$acceptBefore) {
 }
 
 # -------------------------------------------
-# E4: recipient isolation — each party gets only their own notifications
+# E4: recipient isolation - each party gets only their own notifications
 # -------------------------------------------
 $reqGotAccepted = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$reqId AND type='match.accepted';")
 $donGotResponded = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donId AND type='match.responded';")
@@ -189,7 +189,7 @@ if ($reqGotAccepted -eq 0 -and $donGotResponded -eq 0) {
 }
 
 # -------------------------------------------
-# E5: account state — deactivated donor gets no new match notifications
+# E5: account state - deactivated donor gets no new match notifications
 # (hence no new emails) from later requests
 # -------------------------------------------
 $admAuth = Login $admEmail

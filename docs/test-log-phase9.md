@@ -1,4 +1,4 @@
-# Phase 9 Verification Log — 42-Hour Standby & Inter-Donation Cooldown
+# Phase 9 Verification Log - 42-Hour Standby & Inter-Donation Cooldown
 
 > Historical record (2026-08-26). Preserved as-run. Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 9 still 16/16).
 
@@ -10,7 +10,7 @@ Full sweep on fresh log: zero unexpected PHP warnings/errors; smoke PASS; React 
 
 - Migration 012: `system_settings(setting_key PK, value, updated_at)`
 - Seed 003 (`INSERT IGNORE` → preserves operator overrides): `standby_hours=42`, `cooldown_days=90`
-- `SystemSettingsService` validates presence/type/range (standby 1–720h, cooldown 1–1825d) and throws on missing/invalid values — no silent fallbacks. Values are BloodMatch administrative intervals; UI text states actual eligibility is decided by the donating facility.
+- `SystemSettingsService` validates presence/type/range (standby 1–720h, cooldown 1–1825d) and throws on missing/invalid values - no silent fallbacks. Values are BloodMatch administrative intervals; UI text states actual eligibility is decided by the donating facility.
 
 ## Window semantics implemented
 
@@ -22,7 +22,7 @@ Anchor for both windows: `last_verified_donation_at`.
 
 ## Read-model decision (documented in docs/erd.md)
 
-`donor_availability` stays a persisted preference/state — **never lazily mutated** by window passage.
+`donor_availability` stays a persisted preference/state - **never lazily mutated** by window passage.
 Computed matchability rules in `MatchService`:
 - stored `available` → matchable iff both windows expired
 - stored `standby` → matchable iff windows expired AND donation history exists (lvd NOT NULL); a stored standby with no history never matches

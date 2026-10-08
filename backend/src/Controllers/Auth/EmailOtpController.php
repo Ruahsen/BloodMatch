@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BloodMatch\Controllers\Auth;
 
 use BloodMatch\Middleware\AuthMiddleware;
+use BloodMatch\Services\AuthService;
 use BloodMatch\Services\EmailOtpService;
 use BloodMatch\Services\Exceptions\AuthException;
 use BloodMatch\Utils\Request;
@@ -14,7 +15,7 @@ final class EmailOtpController
 {
     /**
      * Identity resolution: an explicit claim token (registration journey,
-     * logged-out registrant) always wins and must validate — fail closed.
+     * logged-out registrant) always wins and must validate - fail closed.
      * Without one, the session account is used (authenticated journey).
      *
      * @return array{mode:string, user?:array, token?:string}
@@ -83,9 +84,21 @@ final class EmailOtpController
 
         try {
             $service = new EmailOtpService();
-            $result = $identity['mode'] === 'claim'
-                ? $service->verifyWithToken((string) $identity['token'], $code)
-                : $service->verifyOtp($identity['user'], $code);
+            if ($identity['mode'] === 'claim') {
+                // Claim-mode success signs the registrant straight in
+                // (claim token + email code together prove ownership), so
+                // no separate sign-in step is needed afterwards.
+                $result = $service->verifyWithToken((string) $identity['token'], $code);
+                $session = (new AuthService())->loginVerifiedUser((int) $result['user_id']);
+                Response::success([
+                    'verified' => true,
+                    'email_verified_at' => $result['email_verified_at'],
+                    'user' => $session['user'],
+                    'csrf_token' => $session['csrf_token'],
+                ]);
+                return;
+            }
+            $result = $service->verifyOtp($identity['user'], $code);
         } catch (AuthException $e) {
             $code0 = $e->getCode();
             Response::error($e->getMessage(), $code0 >= 400 && $code0 <= 499 ? $code0 : 400);

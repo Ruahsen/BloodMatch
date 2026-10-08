@@ -1,4 +1,4 @@
-# Phase 5 Verification Log — Profiles, Documents & Officer Verification
+# Phase 5 Verification Log - Profiles, Documents & Officer Verification
 
 > Historical record (2026-08-26, 40 assertions). Preserved as-run. Superseded for current totals by `docs/test-log-location.md` (2026-09-24: Phase 5 now 44 assertions incl. mandatory ID `privacy_acknowledged` B1b–B1c + `location_id` selector L05–L08; master 12/12, 343). Profile location is now `location_id` (backend-resolved), not raw coordinates.
 
@@ -29,7 +29,7 @@ Final clean-log run: zero PHP warnings/errors; React production build clean
 
 **Profile (A):** safe composition (no password_hash/security fields in JSON); permitted-field updates persisted; attempts to set `role`/`verification_status` rejected 400 with field errors; single coordinate and out-of-range latitude rejected; pair saved. Blood-type provenance: profile edits force `self_reported`; same-value re-save preserves existing provenance; value change resets to self-reported/unverified.
 
-**Documents (B):** valid PDF accepted (201) stored under `backend/storage/documents/<64-hex>` — outside webroot, random name, original filename discarded; executable (MZ), text-masquerading-as-png rejected via server-side finfo; >5 MB → 413; `doc_type='../evil'` rejected; anonymous fetch 401; foreign-user fetch 404 (no existence leak); owner stream OK with no path leakage; other-chapter officer denied 403 (+audit); same-chapter officer allowed.
+**Documents (B):** valid PDF accepted (201) stored under `backend/storage/documents/<64-hex>` - outside webroot, random name, original filename discarded; executable (MZ), text-masquerading-as-png rejected via server-side finfo; >5 MB → 413; `doc_type='../evil'` rejected; anonymous fetch 401; foreign-user fetch 404 (no existence leak); owner stream OK with no path leakage; other-chapter officer denied 403 (+audit); same-chapter officer allowed.
 
 **Verification (C):** own-chapter queue correct; self-verification, officer-target, admin-target, cross-chapter decisions all 403 (+audit); donor-card provenance accepted only on approval with uploaded card (`donor_card|1` in DB) with mandatory non-medical disclaimer surfaced; pending→rejected with reason; resubmission blocked without documents then rejected→pending; double-decision → 409; admin scope-exempt override works.
 
@@ -38,7 +38,7 @@ Final clean-log run: zero PHP warnings/errors; React production build clean
 **Capability matrix (E):** exposed through `/api/profile.capabilities`; verified member = appear_as_donor ✓ + create_request ✓; rejected = create_request ✗ + resubmit ✓.
 *Non-exercisable cells:* request browsing/creation and donor-match appearance have no live endpoints yet (P6/P7+); the helper is applied where relevant today and gates will be wired when those surfaces exist.
 
-**Audit (F):** 8 distinct new event types observed (`profile.updated`, `document.uploaded`, `document.accessed`, `verification.approved`, `verification.rejected`, `verification.resubmitted`, `verification.provenance_accepted`, plus `authz.denied`) — no document contents stored in log context.
+**Audit (F):** 8 distinct new event types observed (`profile.updated`, `document.uploaded`, `document.accessed`, `verification.approved`, `verification.rejected`, `verification.resubmitted`, `verification.provenance_accepted`, plus `authz.denied`) - no document contents stored in log context.
 
 ## Bugs found & fixed during verification
 
@@ -52,4 +52,4 @@ Final clean-log run: zero PHP warnings/errors; React production build clean
 - Reset-token email delivery (carried from Phase 3) still unwired
 - Email address changes not supported in profile (identity-change flow undefined in spec)
 - Capability cells for request/donor surfaces activate with Phases 6–7 endpoints
-- No admin-specific document browse UI (§9.8 "as necessary" — none needed yet)
+- No admin-specific document browse UI (§9.8 "as necessary" - none needed yet)

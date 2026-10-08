@@ -228,7 +228,7 @@ foreach ($specs as $spec) {
                 $updates[] = 'deactivated_at = NULL';
             }
             // Grandfather rule for the login gate: pre-existing fixture
-            // accounts keep working. Fill only when NULL — a real OTP
+            // accounts keep working. Fill only when NULL - a real OTP
             // verification timestamp is never overwritten.
             if (($existing['email_verified_at'] ?? null) === null) {
                 $updates[] = 'email_verified_at = UTC_TIMESTAMP()';

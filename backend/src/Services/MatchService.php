@@ -13,7 +13,7 @@ final class MatchService
 {
     /**
      * Shared candidate-pool predicate (bulk matching AND single-donor
-     * respond reconciliation use this exact fragment — one source of truth).
+     * respond reconciliation use this exact fragment - one source of truth).
      * Takes the 4 standby/cooldown cutoff placeholders in order:
      * standby, cooldown, standby, cooldown. Callers append their own
      * blood-type condition.
@@ -91,7 +91,7 @@ final class MatchService
         $placeholders = implode(',', array_fill(0, count($compatibleTypes), '?'));
 
         // Persisted availability 'standby' may pass ONLY for genuine post-donation
-        // donors (lvd set) whose windows have expired — the read-model path.
+        // donors (lvd set) whose windows have expired - the read-model path.
         // A stored 'standby' without donation history is never matchable.
         $stmt = $pdo->prepare(
             'SELECT id, full_name, chapter_id, donor_availability, latitude, longitude
@@ -159,7 +159,7 @@ final class MatchService
                 }
                 if ($status === 'CLOSED') {
                     // New matching episode: stale contact consent must not leak
-                    // into it — both flags reset, fresh consent required.
+                    // into it - both flags reset, fresh consent required.
                     $status = 'POTENTIAL';
                     $pdo->prepare(
                         'UPDATE matches SET donor_share_consent = 0, requester_share_consent = 0 WHERE id = ?'
@@ -384,7 +384,7 @@ final class MatchService
 
     /**
      * Sanitized WITHDRAWN history for a request (requester/officer view).
-     * Shows that a previously engaged donor withdrew — status and reference
+     * Shows that a previously engaged donor withdrew - status and reference
      * only, no contact, no actions, no re-engagement.
      *
      * @return array<int, array{match_id:int, donor_reference:string, status:string, updated_at:string}>
@@ -409,7 +409,7 @@ final class MatchService
      * Sanitized terminal history for an involved principal (donor's own row).
      * WITHDRAWN/CLOSED are never active matching data, but the donor and the
      * requester may still see the terminal status of their own relationship.
-     * No contact, no actions, no private information — status only.
+     * No contact, no actions, no private information - status only.
      *
      * @return array<int, array{match_id:int, status:string, updated_at:string}>
      */

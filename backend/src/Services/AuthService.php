@@ -139,8 +139,9 @@ final class AuthService
         // Registration-time email OTP: the account is authoritative from
         // this point on; the OTP subsystem is auxiliary and must never be
         // able to fail registration. The minted claim token lets the
-        // still-logged-out registrant complete verification; no session
-        // is created here (the user signs in afterwards, as before).
+        // still-logged-out registrant complete verification, and a
+        // successful claim-mode verification signs them straight in
+        // (see loginVerifiedUser) - no separate sign-in step.
         $emailOtp = [
             'required' => false,
             'delivered' => false,
@@ -206,7 +207,7 @@ final class AuthService
 
         // Mandatory email verification gate: accounts that never proved
         // ownership of their address cannot authenticate. Placement is
-        // deliberate — AFTER the uniform 401 password check (wrong
+        // deliberate - AFTER the uniform 401 password check (wrong
         // passwords stay indistinguishable from unknown emails) and after
         // the deactivated check (existing precedence), but BEFORE any
         // session state is created, so a blocked login never yields even
@@ -249,6 +250,37 @@ final class AuthService
         $freshCsrf = \BloodMatch\Utils\Csrf::token();
 
         AuditLogger::log((int) $user['id'], 'auth.login.success', 'user', (string) $user['id']);
+
+        return ['user' => $this->publicUser($user), 'csrf_token' => $freshCsrf];
+    }
+
+    /**
+     * Session issuance after a successful claim-mode OTP verification.
+     *
+     * The caller already proved account ownership twice: possession of
+     * the single-purpose claim token (256-bit, 30-minute TTL, single-use,
+     * consumed by verification) plus access to the registered email (6-digit
+     * code, 10-minute TTL, max 5 attempts). That is equivalent assurance to
+     * the registration moment itself, so no password round-trip is needed:
+     * verification signs the user straight in. Same session/CSRF/audit
+     * discipline as login().
+     */
+    public function loginVerifiedUser(int $userId): array
+    {
+        $user = $this->users->findById($userId);
+        if ($user === null || (string) $user['account_status'] !== 'active') {
+            throw new Exceptions\AuthException('This account can no longer sign in.', 403);
+        }
+
+        Session::regenerate();
+        $_SESSION['user_id'] = (int) $user['id'];
+        $_SESSION['role'] = (string) $user['role'];
+        $_SESSION['session_version'] = (int) ($user['session_version'] ?? 1);
+        $_SESSION['last_activity'] = time();
+        unset($_SESSION['csrf_token']);
+        $freshCsrf = \BloodMatch\Utils\Csrf::token();
+
+        AuditLogger::log((int) $user['id'], 'auth.login.success', 'user', (string) $user['id'], ['via' => 'email_otp']);
 
         return ['user' => $this->publicUser($user), 'csrf_token' => $freshCsrf];
     }

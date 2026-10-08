@@ -11,10 +11,15 @@ function statusBadge(status) {
   return 'badge-routine'
 }
 
-function ContactPanel({ matchId, onError }) {
+function ContactPanel({ matchId, side, onError }) {
   const [contact, setContact] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // Own email-sharing consent: null = unknown yet, true = ON, false = OFF.
+  // The contact endpoint discloses addresses only when BOTH parties consent,
+  // so a successful load proves our own flag is ON.
+  const [ownShare, setOwnShare] = useState(null)
+  const isRequesterSide = side === 'requester'
 
   const load = async () => {
     setLoading(true)
@@ -22,6 +27,7 @@ function ContactPanel({ matchId, onError }) {
     try {
       const d = await api.get(`/api/matches/${matchId}/contact`)
       setContact(d.contact)
+      setOwnShare(true)
     } catch (err) {
       setError(err.message || 'Contact details are not available for this match.')
       onError?.(err.message)
@@ -33,7 +39,8 @@ function ContactPanel({ matchId, onError }) {
   const setSharing = async (share) => {
     setError(null)
     try {
-      await api.post(`/api/matches/${matchId}/consent`, { share })
+      const d = await api.post(`/api/matches/${matchId}/consent`, { share })
+      setOwnShare(d && typeof d.share === 'boolean' ? d.share : share)
       await load()
     } catch (err) {
       setError(err.message)
@@ -55,20 +62,26 @@ function ContactPanel({ matchId, onError }) {
     <div style={{ marginTop: 'var(--space-3)', borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-3)' }}>
       <span className="metric-label">Direct contact</span>
       <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', marginTop: 'var(--space-1)' }}>
-        <a className="btn btn-secondary btn-sm" href={`mailto:${contact.donor_email}`}>Email donor</a>
-        <a className="btn btn-secondary btn-sm" href={`mailto:${contact.requester_email}`}>Email requester</a>
+        {isRequesterSide ? (
+          <a className="btn btn-secondary btn-sm" href={`mailto:${contact.donor_email}`}>Email donor</a>
+        ) : (
+          <a className="btn btn-secondary btn-sm" href={`mailto:${contact.requester_email}`}>Email requester</a>
+        )}
       </div>
       <p className="muted" style={{ fontSize: '0.75rem', margin: 'var(--space-2) 0 0' }}>
         Donor: {contact.donor_email} · Requester: {contact.requester_email}. Revoking access here cannot unsend an address already saved elsewhere.
       </p>
       {error && <p className="muted" style={{ fontSize: '0.8125rem', margin: 'var(--space-2) 0 0' }}>{error}</p>}
       <div className="button-group" style={{ marginTop: 'var(--space-2)' }}>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSharing(false)}>
-          Revoke my email sharing
-        </button>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSharing(true)}>
-          Re-enable my email sharing
-        </button>
+        {ownShare === false ? (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSharing(true)}>
+            Re-enable my email sharing
+          </button>
+        ) : (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSharing(false)}>
+            Revoke my email sharing
+          </button>
+        )}
       </div>
     </div>
   )
@@ -207,7 +220,7 @@ export default function MatchesPage() {
             <span className="muted">/</span>
             <span className="muted">Matches</span>
           </div>
-          <h1>Potential Donors for Request #{id}</h1>
+          <h1 className="sr-only">Potential Donors for Request #{id}</h1>
         </div>
       </header>
 
@@ -326,14 +339,14 @@ export default function MatchesPage() {
                               Withdraw Response
                             </button>
                           </div>
-                          <ContactPanel matchId={m.match_id} onError={setErrorAlert} />
+                          <ContactPanel matchId={m.match_id} side="donor" onError={setErrorAlert} />
                         </div>
                       )}
 
                       {m.status === 'COMPLETED' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                           <p style={{ margin: 0, fontWeight: 600 }}>Donation completed. Thank you.</p>
-                          <ContactPanel matchId={m.match_id} onError={setErrorAlert} />
+                          <ContactPanel matchId={m.match_id} side="donor" onError={setErrorAlert} />
                         </div>
                       )}
                     </div>
@@ -374,12 +387,12 @@ export default function MatchesPage() {
                               Withdraw Acceptance
                             </button>
                           </div>
-                          <ContactPanel matchId={m.match_id} onError={setErrorAlert} />
+                          <ContactPanel matchId={m.match_id} side="requester" onError={setErrorAlert} />
                         </div>
                       )}
 
                       {m.status === 'COMPLETED' && (
-                        <ContactPanel matchId={m.match_id} onError={setErrorAlert} />
+                        <ContactPanel matchId={m.match_id} side="requester" onError={setErrorAlert} />
                       )}
                     </div>
                   )}

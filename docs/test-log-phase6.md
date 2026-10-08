@@ -1,4 +1,4 @@
-# Phase 6 Verification Log — Blood Request Lifecycle
+# Phase 6 Verification Log - Blood Request Lifecycle
 
 > Historical record (2026-08-26). Preserved as-run (migrations 001–008 snapshot in clean-drill note is historical; current schema 001–016). Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 6 still 35/35; request location now `location_id`, material location edit L12).
 
@@ -17,7 +17,7 @@ Runtime: PHP 8.2.12 dev server → MariaDB @ 3307; zero PHP warnings/errors in f
 | `PUT /api/requests/{id}` | owner, OPEN only | partial whitelist; material-group diffing emits `request.material_change` (no-op edits emit plain `request.updated`); past needed_datetime rejected |
 | `POST /api/requests/{id}/cancel` | owner / same-chapter officer / admin, OPEN only | double-cancel → 409; cross-chapter officer → 403 (+audit) |
 
-CLI: `database/run_expiry.php` — flips due OPEN→EXPIRED (batch 500), sets expired_at once, audited as single batch event, idempotent.
+CLI: `database/run_expiry.php` - flips due OPEN→EXPIRED (batch 500), sets expired_at once, audited as single batch event, idempotent.
 
 ## Verified highlights
 
@@ -32,7 +32,7 @@ CLI: `database/run_expiry.php` — flips due OPEN→EXPIRED (batch 500), sets ex
 
 - `review_status` is an immutable creation-time provenance flag (pending-user requests), NOT a second lifecycle status; current account state is always read live from `users`.
 - `request_chapter_id` is an immutable FK snapshot for scoping/history; documented in `docs/erd.md`.
-- Anonymous POSTs without session hit the CSRF shield first (403 by design since P3); unauthenticated GET access denials are 401 — both behaviors asserted.
+- Anonymous POSTs without session hit the CSRF shield first (403 by design since P3); unauthenticated GET access denials are 401 - both behaviors asserted.
 
 ## Known gaps / deferred
 

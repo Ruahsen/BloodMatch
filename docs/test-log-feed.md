@@ -1,4 +1,4 @@
-# Feed Verification Log — Authenticated Home / Blood Request Feed
+# Feed Verification Log - Authenticated Home / Blood Request Feed
 
 Executed against PHP 8.2.12 dev server (127.0.0.1:8000) → MariaDB 10.4 @ 127.0.0.1:**3307**, DB `bloodmatch_dev` (migration 017 applied).
 Suite: `tests/feed.ps1` (50 assertions) · Full regression: `tests/run_all.ps1` 13/13 suites green · Vite production build clean.
@@ -33,8 +33,8 @@ Suite: `tests/feed.ps1` (50 assertions) · Full regression: `tests/run_all.ps1` 
 
 ## Regressions fixed during verification
 
-1. Single-hit `.Count` on `PSCustomObject` is empty in Windows PowerShell 5.1 — F11 used `@(...)` wrapping (test-only fix; API was already correct).
-2. Per-user request-create throttle (~9/10 min) tripped at the 9th fixture create — suite splits creates across two requester fixtures (test-only; throttle behavior unchanged).
+1. Single-hit `.Count` on `PSCustomObject` is empty in Windows PowerShell 5.1 - F11 used `@(...)` wrapping (test-only fix; API was already correct).
+2. Per-user request-create throttle (~9/10 min) tripped at the 9th fixture create - suite splits creates across two requester fixtures (test-only; throttle behavior unchanged).
 3. Existing `respond` calls in `tests/phase8.ps1`, `tests/phase9.ps1`, `tests/phase10.ps1` extended with `donor_share_consent` (behavior change: consent now required; historical logs preserved as records).
 
 ## UI verification

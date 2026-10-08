@@ -212,7 +212,7 @@ final class RequestsController
 
     /**
      * Request-scoped Respond: primary action for the Home feed. Reconciles a
-     * possibly missing/stale persisted relationship from live donor state —
+     * possibly missing/stale persisted relationship from live donor state -
      * the feed must never require the frontend to possess a match ID.
      */
     public function respondForRequest(array $params): void

@@ -30,7 +30,7 @@ foreach ($expiredRows as $row) {
     $requestId = (int) $row['id'];
     // Per-request atomic sweep: re-claim the stamped row under its lock so
     // a concurrent accept either commits first (and is snapshotted + closed
-    // + notified below) or fails its own OPEN check — never silently
+    // + notified below) or fails its own OPEN check - never silently
     // closed without notice, never left live on a terminal request.
     $pdo = Database::pdo();
     $pdo->beginTransaction();

@@ -1,4 +1,4 @@
-# Location Verification Log — Bataan Municipality/Barangay Selector & Match Consistency
+# Location Verification Log - Bataan Municipality/Barangay Selector & Match Consistency
 
 Executed: 2026-09-24 · Suite: `tests/location.ps1` (20 assertions) · **Result: 20 passed, 0 failed**
 Environment: PHP 8.2.12 dev server (127.0.0.1:8000) → MariaDB 10.4 @ 127.0.0.1:**3307**, DB `bloodmatch_dev`
@@ -11,9 +11,9 @@ Regression: `tests/run_all.ps1` **12/12 suites green** (incl. updated phase5/6/7
 
 ## Reference data methodology (no invented coordinates)
 
-- Hierarchy/names/codes: PSA PSGC via `psgc.gitlab.io` snapshots (12 LGUs, 237 barangays — matches published 237 total). Audited code-by-code and name-by-name against fresh snapshots: 0 missing, 0 extras, 0 mismatches.
+- Hierarchy/names/codes: PSA PSGC via `psgc.gitlab.io` snapshots (12 LGUs, 237 barangays - matches published 237 total). Audited code-by-code and name-by-name against fresh snapshots: 0 missing, 0 extras, 0 mismatches.
 - Municipal points: Wikidata P625 poblacion coordinates, cross-checked with Wikipedia town coordinates and existing chapter seeds.
-- Barangay points: municipal reference point (PSGC publishes no barangay coordinates; GeoNames ADM4 evaluated and rejected — no parent linkage, duplicate names across towns, mixed subdivisions). Documented in seed header and UI copy; architecture supports finer points via reference-data update.
+- Barangay points: municipal reference point (PSGC publishes no barangay coordinates; GeoNames ADM4 evaluated and rejected - no parent linkage, duplicate names across towns, mixed subdivisions). Documented in seed header and UI copy; architecture supports finer points via reference-data update.
 
 ## API behavior verified (L01–L12)
 

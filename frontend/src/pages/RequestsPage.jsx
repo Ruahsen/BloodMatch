@@ -5,6 +5,22 @@ import { api } from '../services/apiClient'
 
 const MINE_PAGE_SIZE = 20
 
+// Needed-by deadline: short PH-time readout, no seconds
+// (e.g. "Oct 12, 8:00 PM"). Stored values are UTC; Asia/Manila is the
+// authoritative display zone for this Bataan-only organization.
+function formatNeededBy(value) {
+  const d = new Date(String(value).replace(' ', 'T') + 'Z')
+  if (Number.isNaN(d.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(d)
+}
+
 export default function RequestsPage() {
   const [requests, setRequests] = useState(null)
   const [message, setMessage] = useState(null)
@@ -68,7 +84,7 @@ export default function RequestsPage() {
     <div className="container">
       <header className="app-header">
         <div>
-          <h1>My Blood Requests</h1>
+          <h1 className="sr-only">My Blood Requests</h1>
         </div>
         <Link to="/requests/new" className="btn">
           + Create New Request
@@ -141,7 +157,7 @@ export default function RequestsPage() {
                   </div>
                   <div>
                     <span className="metric-label">Needed By</span>
-                    <p style={{ margin: 0, fontWeight: 600 }}>{new Date(r.needed_datetime.replace(' ', 'T') + 'Z').toLocaleString()}</p>
+                    <p style={{ margin: 0, fontWeight: 600 }}>{formatNeededBy(r.needed_datetime)}</p>
                   </div>
                   <div>
                     <span className="metric-label">Request ID</span>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { api } from '../services/apiClient'
+import { api, clearCsrf } from '../services/apiClient'
+import { clearPendingDocument, getPendingDocument } from '../services/pendingDocument'
 import { useAuth } from '../context/AuthContext'
 
 const CLAIM_KEY = 'bloodmatch_email_otp_claim'
@@ -34,7 +35,8 @@ function formatCountdown(totalSeconds) {
  * Two modes, one UI:
  * - claim mode: the user just registered (no session yet) and authorizes
  *   with the single-purpose claim token issued by POST /api/register,
- *   kept in sessionStorage (tab-scoped, never in a URL).
+ *   kept in sessionStorage (tab-scoped, never in a URL). A successful
+ *   verification signs them straight in - no separate sign-in step.
  * - session mode: a signed-in, still-unverified user (e.g. returning via
  *   the profile banner) uses the normal authenticated endpoints.
  */
@@ -54,7 +56,7 @@ export default function EmailVerificationPage() {
     location.state?.registered && location.state?.delivered !== false
       ? 'Account created. Check your email for your verification code.'
       : location.state?.fromBlockedLogin
-        ? 'Sign-in needs a verified email first. Enter the code below — request a new one if yours expired.'
+        ? 'Sign-in needs a verified email first. Enter the code below - request a new one if yours expired.'
         : null
   )
   const [verifying, setVerifying] = useState(false)
@@ -186,13 +188,58 @@ export default function EmailVerificationPage() {
       await api.post('/api/auth/email-otp/verify', payload)
       setCode('')
       if (mode === 'claim') {
+        // Verification signed the registrant in: adopt the fresh session
+        // (the server rotated CSRF at this privilege boundary), then
+        // upload the valid ID staged during registration (document upload
+        // requires auth, so it could only be staged until this moment),
+        // and go to the feed - no separate sign-in step.
         clearClaimToken()
-        navigate('/login', { state: { emailVerified: true } })
+        clearCsrf()
+        await refresh()
+        const pending = getPendingDocument()
+        let idDoc = null
+        if (pending?.file) {
+          try {
+            await api.upload('/api/profile/documents', pending.file, {
+              doc_type: pending.docType || 'national_id',
+              privacy_acknowledged: '1'
+            })
+            idDoc = { uploaded: true, name: pending.file.name }
+          } catch (uploadErr) {
+            idDoc = {
+              uploaded: false,
+              error: uploadErr.message || 'Your ID could not be uploaded automatically. Attach it again in your profile.'
+            }
+          } finally {
+            clearPendingDocument()
+          }
+        } else if (location.state?.pendingIdDoc) {
+          idDoc = {
+            uploaded: false,
+            error: 'Your ID file did not carry over to verification (the tab may have reloaded). Attach it again in your profile.'
+          }
+        }
+        navigate('/feed', idDoc ? { state: { idDoc } } : undefined)
         return
       }
       await refresh()
       applyStatus(await api.get('/api/auth/email-otp/status'))
-      setNotice('Email verified. Thank you for confirming your address.')
+      const pendingSession = getPendingDocument()
+      if (pendingSession?.file) {
+        try {
+          await api.upload('/api/profile/documents', pendingSession.file, {
+            doc_type: pendingSession.docType || 'national_id',
+            privacy_acknowledged: '1'
+          })
+          setNotice('Email verified. Your staged ID was uploaded for officer verification.')
+        } catch (uploadErr) {
+          setNotice(`Email verified. ${uploadErr.message || 'Your staged ID could not be uploaded. Attach it again in your profile.'}`)
+        } finally {
+          clearPendingDocument()
+        }
+      } else {
+        setNotice('Email verified. Thank you for confirming your address.')
+      }
     } catch (err) {
       setError(err.message || 'Verification failed.')
       // Refresh attempts/cooldown from the server (attempt counting,
@@ -247,7 +294,7 @@ export default function EmailVerificationPage() {
           </div>
           <p className="muted" style={{ fontSize: '0.875rem', margin: 0 }}>
             Registration verification is complete. Email verification confirms you can access this address.
-            It does not verify you as a donor — donor verification is a separate officer review in your profile.
+            It does not verify you as a donor - donor verification is a separate officer review in your profile.
           </p>
           <div style={{ marginTop: 'var(--space-4)', display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <Link to="/profile" className="btn">Back to profile</Link>
@@ -258,10 +305,15 @@ export default function EmailVerificationPage() {
         <>
           {error && <div className="alert alert-error" role="alert">{error}</div>}
           {notice && <div className="alert alert-success" role="status">{notice}</div>}
+          {location.state?.pendingIdDoc && (
+            <div className="alert alert-success" role="status">
+              Your ID{location.state?.pendingIdName ? ` (${location.state.pendingIdName})` : ''} is staged in this tab and will be uploaded automatically once verification signs you in. Keep this tab open.
+            </div>
+          )}
           {deliveryFailed && (
             <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-3)' }}>
               Your account was created, but the verification email could not be delivered.
-              Request a new code below — your email stays unverified until a code arrives and is accepted.
+              Request a new code below - your email stays unverified until a code arrives and is accepted.
             </div>
           )}
           <div className="card">

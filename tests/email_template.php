@@ -53,7 +53,7 @@ $cases = [
     ['match.closed', 'An accepted match was closed', 'An accepted donor relationship on your blood request was closed for an administrative or safety reason. Contact details are no longer available.', 'blood_request', 12],
     ['verification.decision', 'Your membership has been verified', 'An officer verified your membership. You can now participate as a donor.', 'verification', 7],
     ['account.status_changed', 'Your account has been reactivated', 'Your account was reactivated. Welcome back!', 'account', 7],
-    ['donation.confirmed', 'Donation confirmed — thank you!', 'Your donation was confirmed. Thank you for saving a life!', 'donation_report', 3],
+    ['donation.confirmed', 'Donation confirmed - thank you!', 'Your donation was confirmed. Thank you for saving a life!', 'donation_report', 3],
     ['donation.rejected', 'Donation report rejected', 'Your donation report could not be confirmed.', 'donation_report', 3],
     ['request.fulfilled', 'Blood request fulfilled', 'Your blood request #12 has received all required units and is now fulfilled.', 'blood_request', 12],
     ['request.cancelled', 'Blood request cancelled', 'Your blood request #12 has been cancelled.', 'blood_request', 12],

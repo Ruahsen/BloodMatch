@@ -76,7 +76,7 @@ export default function AdminAuditLogsPage() {
       <header className="app-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-            <h1 style={{ margin: 0 }}>System-Wide Audit Log Browser</h1>
+            <h1 className="sr-only">System-Wide Audit Log Browser</h1>
             <span className="badge badge-open">Global System Scope</span>
           </div>
         </div>

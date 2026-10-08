@@ -31,7 +31,7 @@ use Throwable;
  * account has no session yet and authorizes via a single-purpose claim
  * token minted at registration; (2) the authenticated journey for
  * signed-in users. Limits, hashing, expiry, and consumption are identical
- * in both — only identity resolution differs.
+ * in both - only identity resolution differs.
  */
 final class EmailOtpService
 {
@@ -93,8 +93,8 @@ final class EmailOtpService
 
     /**
      * Registration-time issuance: same core as requestOtp, but delivery
-     * failure is reported (never thrown) so account creation — the
-     * authoritative step — can never fail because of the OTP subsystem.
+     * failure is reported (never thrown) so account creation - the
+     * authoritative step - can never fail because of the OTP subsystem.
      *
      * @return array{delivered:bool, expires_in_seconds:int, resend_available_in_seconds:int}
      */
@@ -368,8 +368,10 @@ final class EmailOtpService
     /**
      * Mint the registration claim token. Returns the plaintext token once;
      * only its SHA-256 hash is stored. The token authorizes OTP
-     * send/verify/status for this account only — never a session, never
-     * any other endpoint.
+     * send/verify/status for this account only - never any other endpoint.
+     * A successful claim-mode verification signs the user in
+     * (EmailOtpController issues the session); the token itself never
+     * grants access to anything else.
      */
     public function mintClaimToken(int $userId): string
     {
@@ -429,7 +431,7 @@ final class EmailOtpService
     }
 
     /**
-     * @return array{verified:bool, email_verified_at:string}
+     * @return array{verified:bool, email_verified_at:string, user_id:int}
      */
     public function verifyWithToken(string $token, string $code): array
     {
@@ -442,6 +444,7 @@ final class EmailOtpService
         if (!$this->claims->consume((int) $ctx['claimId'], $now)) {
             error_log('[email-otp] claim already consumed for user ' . (int) $ctx['user']['id']);
         }
+        $result['user_id'] = (int) $ctx['user']['id'];
         return $result;
     }
 

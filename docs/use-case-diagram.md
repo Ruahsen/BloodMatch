@@ -1,4 +1,4 @@
-# BloodMatch — Use Case Diagram
+# BloodMatch - Use Case Diagram
 
 ## A. Short Use Case Diagram Explanation
 
@@ -20,74 +20,74 @@ The Use Case Diagram of BloodMatch illustrates how DeMolay members, Chapter Offi
 ## C. Complete Use Case List
 
 ### Account & Authentication
-1. **Register Account** — Allows a DeMolay member to create an account with personal, chapter, and blood-related information (no location collected; raw coordinates rejected). Mandatory Privacy Notice acknowledgment (`privacy_acknowledged`). Creates user with `verification_status='pending'`, `account_status='active'`, `role='member'`.
-2. **Log In** — Allows registered users to securely authenticate using email and password. Establishes HttpOnly session cookie with regeneration; enforces rate limiting (5 failed attempts = 15 min lockout).
-3. **Log Out** — Destroys server session and clears session cookie; records audit event.
-4. **Reset Password** — Allows users to request a single-use, hashed reset token (30-minute expiry) and set a new password. Token stored as SHA-256 hash; single-use enforced via `used_at` timestamp.
-5. **Manage Profile** — Allows authenticated users to update permitted fields (full name, phone, date of birth, self-reported blood type, Bataan `location_id` via `LocationSelector.jsx`; backend-resolved coordinates; raw `latitude`/`longitude` rejected). Explicitly rejects attempts to modify role, verification status, email, password, or blood_type_verified. Location change triggers donor-match refresh (`matches_refreshed`).
-6. **Manage Profile Picture** — Allows authenticated users to upload/replace profile picture (`POST /api/profile/picture`, JPG/PNG/WEBP ≤5 MB, 64-hex ref in `backend/storage/profile_pictures`, replacement deletes old file) and view it via navbar avatar (`NavbarAvatar` with fallback `User` icon) and Profile; owner-only retrieval (`GET /api/profile/picture`, 404 when none). Does not affect verification/matching/eligibility. Verified `tests/profile_picture.ps1` P01–P13.
-7. **Select Bataan Location** — Allows users to select Municipality/City + optional Barangay via cascading selector (`GET /api/locations/municipalities`, `GET /api/locations/barangays`; no coordinates exposed). Backend (`LocationService`) resolves `location_id` to canonical reference coordinates for profile (`users.location_id`) and request facility (`blood_requests.location_id`). Barangay is an administrative label until finer coordinates are seeded.
-8. **Upload Verification Documents** — Allows users to upload identity documents (national ID, donor card, parental consent) with mandatory ID Privacy Notice acknowledgment (`privacy_acknowledged`) plus server-side MIME validation (JPEG/PNG/WEBP/PDF ≤5 MB), randomized storage outside webroot.
-9. **Resubmit Verification** — Allows rejected members to resubmit for verification review (requires national ID document); transitions `verification_status` from `rejected` to `pending`.
+1. **Register Account** - Allows a DeMolay member to create an account with personal, chapter, and blood-related information (no location collected; raw coordinates rejected). Mandatory Privacy Notice acknowledgment (`privacy_acknowledged`). Creates user with `verification_status='pending'`, `account_status='active'`, `role='member'`.
+2. **Log In** - Allows registered users to securely authenticate using email and password. Establishes HttpOnly session cookie with regeneration; enforces rate limiting (5 failed attempts = 15 min lockout).
+3. **Log Out** - Destroys server session and clears session cookie; records audit event.
+4. **Reset Password** - Allows users to request a single-use, hashed reset token (30-minute expiry) and set a new password. Token stored as SHA-256 hash; single-use enforced via `used_at` timestamp.
+5. **Manage Profile** - Allows authenticated users to update permitted fields (full name, phone, date of birth, self-reported blood type, Bataan `location_id` via `LocationSelector.jsx`; backend-resolved coordinates; raw `latitude`/`longitude` rejected). Explicitly rejects attempts to modify role, verification status, email, password, or blood_type_verified. Location change triggers donor-match refresh (`matches_refreshed`).
+6. **Manage Profile Picture** - Allows authenticated users to upload/replace profile picture (`POST /api/profile/picture`, JPG/PNG/WEBP ≤5 MB, 64-hex ref in `backend/storage/profile_pictures`, replacement deletes old file) and view it via navbar avatar (`NavbarAvatar` with fallback `User` icon) and Profile; owner-only retrieval (`GET /api/profile/picture`, 404 when none). Does not affect verification/matching/eligibility. Verified `tests/profile_picture.ps1` P01–P13.
+7. **Select Bataan Location** - Allows users to select Municipality/City + optional Barangay via cascading selector (`GET /api/locations/municipalities`, `GET /api/locations/barangays`; no coordinates exposed). Backend (`LocationService`) resolves `location_id` to canonical reference coordinates for profile (`users.location_id`) and request facility (`blood_requests.location_id`). Barangay is an administrative label until finer coordinates are seeded.
+8. **Upload Verification Documents** - Allows users to upload identity documents (national ID, donor card, parental consent) with mandatory ID Privacy Notice acknowledgment (`privacy_acknowledged`) plus server-side MIME validation (JPEG/PNG/WEBP/PDF ≤5 MB), randomized storage outside webroot.
+9. **Resubmit Verification** - Allows rejected members to resubmit for verification review (requires national ID document); transitions `verification_status` from `rejected` to `pending`.
 
 ### Verification & Donor Management
-10. **Review Member Verification** — Allows Chapter Officers (own chapter) and System Admins (scope-exempt) to inspect pending member submissions, documents, age eligibility, and verification history.
-11. **Approve Verification** — Allows authorized officers/admins to approve a pending member; optionally upgrades blood type provenance to `donor_card` (officer-verified) with mandatory non-medical disclaimer.
-12. **Reject Verification** — Allows authorized officers/admins to reject a pending member with a recorded reason; member may resubmit.
-13. **Enroll as Donor** — Allows verified members (age-eligible: ≥18, or 16–17 with parental consent) to explicitly opt in as a volunteer blood donor. Sets `donor_enrolled_at` and `donor_availability='available'`.
-14. **Manage Donor Availability** — Allows enrolled donors to toggle availability (`available` ↔ `unavailable`). Blocked during system-enforced Standby (42-hour post-donation) or Cooldown (90-day inter-donation) windows.
-15. **Check Donor Eligibility** — (System-internal) Verifies donor eligibility for matching: verified status, active account, explicit enrollment, `available` status, age consent, and no active standby/cooldown windows anchored to `last_verified_donation_at`. Implemented in `DonorEligibilityService.php`, called by `MatchService.php`.
-16. **View Donor Status** — Allows members to view their own donor enrollment status, availability, and any active standby/cooldown remaining time.
+10. **Review Member Verification** - Allows Chapter Officers (own chapter) and System Admins (scope-exempt) to inspect pending member submissions, documents, age eligibility, and verification history.
+11. **Approve Verification** - Allows authorized officers/admins to approve a pending member; optionally upgrades blood type provenance to `donor_card` (officer-verified) with mandatory non-medical disclaimer.
+12. **Reject Verification** - Allows authorized officers/admins to reject a pending member with a recorded reason; member may resubmit.
+13. **Enroll as Donor** - Allows verified members (age-eligible: ≥18, or 16–17 with parental consent) to explicitly opt in as a volunteer blood donor. Sets `donor_enrolled_at` and `donor_availability='available'`.
+14. **Manage Donor Availability** - Allows enrolled donors to toggle availability (`available` ↔ `unavailable`). Blocked during system-enforced Standby (42-hour post-donation) or Cooldown (90-day inter-donation) windows.
+15. **Check Donor Eligibility** - (System-internal) Verifies donor eligibility for matching: verified status, active account, explicit enrollment, `available` status, age consent, and no active standby/cooldown windows anchored to `last_verified_donation_at`. Implemented in `DonorEligibilityService.php`, called by `MatchService.php`.
+16. **View Donor Status** - Allows members to view their own donor enrollment status, availability, and any active standby/cooldown remaining time.
 
 ### Blood Requests
-17. **Create Blood Request** — Allows authenticated members (including pending verification — request marked `review_status='pending_review'`) to create a request with required blood type, quantity, facility, urgency, needed date/time, and optional Bataan facility location (`location_id` via selector; backend-resolved; raw coordinates rejected; omitted location keeps proximity skipped). Automatically triggers matching engine (`MatchService::generateForRequest`) and notifies compatible donors.
-18. **View Blood Requests** — Allows members to list their own requests; officers/admins to view requests in their scope.
-19. **View Blood Request Details** — Allows request owner, matched donors, chapter officers (own chapter), and admins to view full request details.
-20. **Edit Blood Request** — Allows request owner to update facility, needed date/time, units, urgency, or location while request is `OPEN`. Material changes (blood type, location, urgency, needed date, quantity) trigger matching re-evaluation (`request.material_change`).
-21. **Cancel Blood Request** — Allows request owner (or same-chapter officer/admin) to cancel an `OPEN` request; status becomes `CANCELLED`, unresolved matches (`POTENTIAL`/`NOTIFIED`/`RESPONDED`/`ACCEPTED`) closed, accepted donors notified directly.
+17. **Create Blood Request** - Allows authenticated members (including pending verification - request marked `review_status='pending_review'`) to create a request with required blood type, quantity, facility, urgency, needed date/time, and optional Bataan facility location (`location_id` via selector; backend-resolved; raw coordinates rejected; omitted location keeps proximity skipped). Automatically triggers matching engine (`MatchService::generateForRequest`) and notifies compatible donors.
+18. **View Blood Requests** - Allows members to list their own requests; officers/admins to view requests in their scope.
+19. **View Blood Request Details** - Allows request owner, matched donors, chapter officers (own chapter), and admins to view full request details.
+20. **Edit Blood Request** - Allows request owner to update facility, needed date/time, units, urgency, or location while request is `OPEN`. Material changes (blood type, location, urgency, needed date, quantity) trigger matching re-evaluation (`request.material_change`).
+21. **Cancel Blood Request** - Allows request owner (or same-chapter officer/admin) to cancel an `OPEN` request; status becomes `CANCELLED`, unresolved matches (`POTENTIAL`/`NOTIFIED`/`RESPONDED`/`ACCEPTED`) closed, accepted donors notified directly.
 
 ### Blood Matching
-22. **Find Compatible Donors** — (System-internal) Automatically executed on request creation and material changes. Uses centralized red-cell ABO/Rh matrix (`BloodCompatibilityService.php`, 8 types; `compatibility_matrix` table+seed), filters to verified/enrolled/available/age-eligible donors, ranks by Compatibility → Availability → Verification → Proximity (`Geo::distanceKm` Haversine) with same-chapter preference boost. Generates persistent `matches` rows with generation number. Donor profile location change triggers `refreshMatchesForDonor()` without generation bump (no duplicate notifications; COMPLETED/CLOSED preserved).
-23. **View Match Results** — Allows request owner, matched donors (own entry only), chapter officers, and admins to view privacy-safe candidates (`donor_reference`, full name, chapter, verification/availability, `approximate_distance_km` only; no coords/phone/email/documents). Chapter display filter optional; never alters underlying match set.
-24. **Re-run Matching** — Allows authorized users (request owner via create/edit flow, chapter officer/admin via `POST /api/officer/requests/{id}/re-match`) to manually trigger match regeneration for an active request. Reconciles existing matches without duplicates (`match.manual_rematch` audited).
-25. **Respond to Match** — Allows the matched donor to signal willingness to donate; transitions match status `POTENTIAL`/`NOTIFIED` → `RESPONDED` with mandatory email-sharing consent. Multiple donors may respond in parallel. The Home feed reconciles missing/stale rows from live donor state via request-scoped Respond (never per-row generation).
+22. **Find Compatible Donors** - (System-internal) Automatically executed on request creation and material changes. Uses centralized red-cell ABO/Rh matrix (`BloodCompatibilityService.php`, 8 types; `compatibility_matrix` table+seed), filters to verified/enrolled/available/age-eligible donors, ranks by Compatibility → Availability → Verification → Proximity (`Geo::distanceKm` Haversine) with same-chapter preference boost. Generates persistent `matches` rows with generation number. Donor profile location change triggers `refreshMatchesForDonor()` without generation bump (no duplicate notifications; COMPLETED/CLOSED preserved).
+23. **View Match Results** - Allows request owner, matched donors (own entry only), chapter officers, and admins to view privacy-safe candidates (`donor_reference`, full name, chapter, verification/availability, `approximate_distance_km` only; no coords/phone/email/documents). Chapter display filter optional; never alters underlying match set.
+24. **Re-run Matching** - Allows authorized users (request owner via create/edit flow, chapter officer/admin via `POST /api/officer/requests/{id}/re-match`) to manually trigger match regeneration for an active request. Reconciles existing matches without duplicates (`match.manual_rematch` audited).
+25. **Respond to Match** - Allows the matched donor to signal willingness to donate; transitions match status `POTENTIAL`/`NOTIFIED` → `RESPONDED` with mandatory email-sharing consent. Multiple donors may respond in parallel. The Home feed reconciles missing/stale rows from live donor state via request-scoped Respond (never per-row generation).
 
 ### Donation
-26. **Submit Donation Report** — Allows the matched donor to submit a donation report (note) for officer confirmation; creates `donation_reports` row with `status='PENDING'`.
-27. **Confirm Donation** — Allows chapter officer (own chapter) or admin to confirm a pending donation report. Executes atomic transaction: marks report `CONFIRMED`, match `COMPLETED`, sets donor `last_verified_donation_at`, activates Standby (42h) and Cooldown (90d), checks request fulfillment threshold (`quantity_units`).
-28. **Reject Donation** — Allows chapter officer (own chapter) or admin to reject a pending donation report; marks report `REJECTED`.
-29. **Fulfill Blood Request** — (System-internal) Automatically transitions request `OPEN` → `FULFILLED` when confirmed donation count reaches `quantity_units`; closes remaining unresolved matches (`POTENTIAL`/`NOTIFIED`/`RESPONDED`/`ACCEPTED`) to `CLOSED`.
+26. **Submit Donation Report** - Allows the matched donor to submit a donation report (note) for officer confirmation; creates `donation_reports` row with `status='PENDING'`.
+27. **Confirm Donation** - Allows chapter officer (own chapter) or admin to confirm a pending donation report. Executes atomic transaction: marks report `CONFIRMED`, match `COMPLETED`, sets donor `last_verified_donation_at`, activates Standby (42h) and Cooldown (90d), checks request fulfillment threshold (`quantity_units`).
+28. **Reject Donation** - Allows chapter officer (own chapter) or admin to reject a pending donation report; marks report `REJECTED`.
+29. **Fulfill Blood Request** - (System-internal) Automatically transitions request `OPEN` → `FULFILLED` when confirmed donation count reaches `quantity_units`; closes remaining unresolved matches (`POTENTIAL`/`NOTIFIED`/`RESPONDED`/`ACCEPTED`) to `CLOSED`.
 
 ### Notifications
-30. **Receive Notifications** — (System-internal) Creates in-app notification records for events: new matches, verification decisions, donation confirmations/rejections, account status changes, request cancellation/expiration. Deduplication via unique `(dedup_key, generation)`.
-31. **View Notifications** — Allows users to view notifications via in-navbar flyout (`NotificationFlyout.jsx`, current primary UI: bell + floating panel/bottom-sheet, 10-item preview, live `GET /api/notifications/unread-count` badge) with type/read filters; dedicated `/notifications` page (`NotificationsPage.jsx`) retained as View-all. Notification feature retained; dedicated page as primary UI changed to flyout.
-32. **Mark Notification as Read** — Allows users to mark single or all notifications as read (idempotent; `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`).
-33. **Receive Email Alerts** — (External interaction) Delivers email for defined important events via SMTP; rate-limited (5/user/hr), critical urgency bypasses limit. Failures logged, never blocks in-app notification.
+30. **Receive Notifications** - (System-internal) Creates in-app notification records for events: new matches, verification decisions, donation confirmations/rejections, account status changes, request cancellation/expiration. Deduplication via unique `(dedup_key, generation)`.
+31. **View Notifications** - Allows users to view notifications via in-navbar flyout (`NotificationFlyout.jsx`, current primary UI: bell + floating panel/bottom-sheet, 10-item preview, live `GET /api/notifications/unread-count` badge) with type/read filters; dedicated `/notifications` page (`NotificationsPage.jsx`) retained as View-all. Notification feature retained; dedicated page as primary UI changed to flyout.
+32. **Mark Notification as Read** - Allows users to mark single or all notifications as read (idempotent; `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`).
+33. **Receive Email Alerts** - (External interaction) Delivers email for defined important events via SMTP; rate-limited (5/user/hr), critical urgency bypasses limit. Failures logged, never blocks in-app notification.
 
 ### Audit
-34. **Record System Activity** — (System-internal) Append-only audit logging for 32+ mandatory event types (registration, login, verification decisions, request lifecycle incl. `request.material_change` and `match.generation`/`match.manual_rematch`, donation workflow, availability changes, `profile.picture_updated`, role/chapter changes, admin overrides, cross-chapter authorizations). Database triggers enforce immutability (UPDATE/DELETE blocked).
-35. **View Audit Logs (Chapter-Scoped)** — Allows Chapter Officers to query audit events relevant to their chapter (actor/target in chapter).
-36. **View Audit Logs (System-Wide)** — Allows System Administrators to query all audit events with multi-parameter search.
+34. **Record System Activity** - (System-internal) Append-only audit logging for 32+ mandatory event types (registration, login, verification decisions, request lifecycle incl. `request.material_change` and `match.generation`/`match.manual_rematch`, donation workflow, availability changes, `profile.picture_updated`, role/chapter changes, admin overrides, cross-chapter authorizations). Database triggers enforce immutability (UPDATE/DELETE blocked).
+35. **View Audit Logs (Chapter-Scoped)** - Allows Chapter Officers to query audit events relevant to their chapter (actor/target in chapter).
+36. **View Audit Logs (System-Wide)** - Allows System Administrators to query all audit events with multi-parameter search.
 
 ### Analytics & Monitoring
-37. **View Analytics** — Allows officers (chapter-scoped) and admins (system-wide, optional chapter filter) to view operational metrics: request volume/trends, resolution rates (fulfillment/cancellation/expiration against resolved denominator), blood type demand, urgency breakdown, daily trends, live donor eligibility breakdown, verification/donation activity.
-38. **View Regional Blood Demand** — Allows officers (own chapter) and admins (all chapters) to view aggregated counts of active `OPEN` requests at chapter centroid level, grouped by blood type and urgency. Never exposes individual request locations or identities.
-39. **View Officer Dashboard** — Allows Chapter Officers to view triage queues: pending verifications, pending donation confirmations, active open requests, donor pool summary, blood type demand, recent chapter activity.
-40. **View Administrator Dashboard** — Allows System Administrators to view global KPIs, total users, 3-chapter comparative matrix, lifecycle resolution rates.
+37. **View Analytics** - Allows officers (chapter-scoped) and admins (system-wide, optional chapter filter) to view operational metrics: request volume/trends, resolution rates (fulfillment/cancellation/expiration against resolved denominator), blood type demand, urgency breakdown, daily trends, live donor eligibility breakdown, verification/donation activity.
+38. **View Regional Blood Demand** - Allows officers (own chapter) and admins (all chapters) to view aggregated counts of active `OPEN` requests at chapter centroid level, grouped by blood type and urgency. Never exposes individual request locations or identities.
+39. **View Officer Dashboard** - Allows Chapter Officers to view triage queues: pending verifications, pending donation confirmations, active open requests, donor pool summary, blood type demand, recent chapter activity.
+40. **View Administrator Dashboard** - Allows System Administrators to view global KPIs, total users, 3-chapter comparative matrix, lifecycle resolution rates.
 
 ### Administration
-41. **Manage Users** — Allows System Administrators to list all users system-wide with filters (role, status, chapter, search) and pagination (`GET /api/admin/users`).
-42. **Assign Roles** — Allows System Administrators to assign `member`/`officer`/`admin` roles; officer role requires exactly one chapter assignment; self-role change forbidden.
-43. **Assign Chapter** — Allows System Administrators to assign/clear user chapter binding; clearing an officer's chapter forbidden (422).
-44. **Deactivate/Reactivate Accounts** — Allows System Administrators to soft-deactivate accounts (`account_status='deactivated'`, `deactivated_at` set) or reactivate; verification status untouched; deactivated sessions immediately denied access. Deactivation immediately closes the user's OPEN `ACCEPTED` relationships (either side) with counterpart notification.
+41. **Manage Users** - Allows System Administrators to list all users system-wide with filters (role, status, chapter, search) and pagination (`GET /api/admin/users`).
+42. **Assign Roles** - Allows System Administrators to assign `member`/`officer`/`admin` roles; officer role requires exactly one chapter assignment; self-role change forbidden.
+43. **Assign Chapter** - Allows System Administrators to assign/clear user chapter binding; clearing an officer's chapter forbidden (422).
+44. **Deactivate/Reactivate Accounts** - Allows System Administrators to soft-deactivate accounts (`account_status='deactivated'`, `deactivated_at` set) or reactivate; verification status untouched; deactivated sessions immediately denied access. Deactivation immediately closes the user's OPEN `ACCEPTED` relationships (either side) with counterpart notification.
 
 ### Home Feed & Match Commitments
-45. **Browse Home Feed** — Allows authenticated members (capability `browse_requests`; no donor enrollment/availability required) to browse `OPEN` requests ranked by compatibility tier → urgency → needed datetime → distance, with blood/urgency/chapter/near-you filters and server-derived per-item actions (`GET /api/requests/feed`, `FeedPage.jsx`).
-46. **Accept Donor** — Allows the requester to select a responded donor (`RESPONDED` → `ACCEPTED`) within unit capacity (`COUNT(ACCEPTED) + COUNT(COMPLETED) <= quantity_units`) with both contact consents; notifies the donor.
-47. **Withdraw Acceptance** — Allows the requester to reverse an acceptance (`ACCEPTED` → `RESPONDED`); willingness survives, requester consent resets, contact revoked, capacity released, donor notified.
-48. **Withdraw Response** — Allows the donor to withdraw a response (`RESPONDED`/`ACCEPTED` → `WITHDRAWN`, terminal for that pair, never resurrected); contact revoked, capacity released, requester notified.
-49. **Manage Contact Consent** — Allows either principal to set only their own email-sharing flag (grants only while `ACCEPTED` + OPEN + both active; revokes in meaningful states); revocation notifies the other principal.
-50. **Exchange Contact Details** — Allows both principals of an `ACCEPTED` (or `COMPLETED` + OPEN) match with both consents and active accounts to retrieve each other's email via the protected contact endpoint; revoked on terminal states.
+45. **Browse Home Feed** - Allows authenticated members (capability `browse_requests`; no donor enrollment/availability required) to browse `OPEN` requests ranked by compatibility tier → urgency → needed datetime → distance, with blood/urgency/chapter/near-you filters and server-derived per-item actions (`GET /api/requests/feed`, `FeedPage.jsx`).
+46. **Accept Donor** - Allows the requester to select a responded donor (`RESPONDED` → `ACCEPTED`) within unit capacity (`COUNT(ACCEPTED) + COUNT(COMPLETED) <= quantity_units`) with both contact consents; notifies the donor.
+47. **Withdraw Acceptance** - Allows the requester to reverse an acceptance (`ACCEPTED` → `RESPONDED`); willingness survives, requester consent resets, contact revoked, capacity released, donor notified.
+48. **Withdraw Response** - Allows the donor to withdraw a response (`RESPONDED`/`ACCEPTED` → `WITHDRAWN`, terminal for that pair, never resurrected); contact revoked, capacity released, requester notified.
+49. **Manage Contact Consent** - Allows either principal to set only their own email-sharing flag (grants only while `ACCEPTED` + OPEN + both active; revokes in meaningful states); revocation notifies the other principal.
+50. **Exchange Contact Details** - Allows both principals of an `ACCEPTED` (or `COMPLETED` + OPEN) match with both consents and active accounts to retrieve each other's email via the protected contact endpoint; revoked on terminal states.
 
 ---
 
@@ -95,56 +95,56 @@ The Use Case Diagram of BloodMatch illustrates how DeMolay members, Chapter Offi
 
 | Use Case | Member | Chapter Officer | System Admin | Email/SMTP Service |
 |---|---|---|---|---|
-| Register Account | ✅ | — | — | — |
-| Log In | ✅ | ✅ | ✅ | — |
-| Log Out | ✅ | ✅ | ✅ | — |
-| Reset Password | ✅ | ✅ | ✅ | — |
-| Manage Profile | ✅ | ✅ | ✅ | — |
-| Manage Profile Picture | ✅ | ✅ | ✅ | — |
-| Select Bataan Location | ✅ | ✅ | ✅ | — |
-| Upload Verification Documents | ✅ | — | — | — |
-| Resubmit Verification | ✅ (rejected only) | — | — | — |
-| Review Member Verification | — | ✅ (own chapter) | ✅ (scope-exempt) | — |
-| Approve Verification | — | ✅ (own chapter) | ✅ (scope-exempt) | — |
-| Reject Verification | — | ✅ (own chapter) | ✅ (scope-exempt) | — |
-| Enroll as Donor | ✅ (verified only) | — | — | — |
-| Manage Donor Availability | ✅ (enrolled only) | — | — | — |
-| Check Donor Eligibility | (system) | (system) | (system) | — |
-| View Donor Status | ✅ | — | — | — |
-| Create Blood Request | ✅ (pending allowed) | — | — | — |
-| View Blood Requests | ✅ (own) | ✅ (chapter) | ✅ (all) | — |
-| View Blood Request Details | ✅ (own/matched) | ✅ (chapter) | ✅ (all) | — |
-| Edit Blood Request | ✅ (own, OPEN) | — | — | — |
-| Cancel Blood Request | ✅ (own, OPEN) | — | — | — |
-| Find Compatible Donors | (system) | (system) | (system) | — |
-| View Match Results | ✅ (own/matched) | ✅ (chapter) | ✅ (all) | — |
-| Re-run Matching | ✅ (own request) | ✅ (chapter) | ✅ (all) | — |
-| Respond to Match | ✅ (matched donor) | — | — | — |
-| Browse Home Feed | ✅ (browse capability) | ✅ | ✅ | — |
-| Accept Donor | ✅ (own request) | — | — | — |
-| Withdraw Acceptance | ✅ (own request) | — | — | — |
-| Withdraw Response | ✅ (own match) | — | — | — |
-| Manage Contact Consent | ✅ (own match) | — | — | — |
-| Exchange Contact Details | ✅ (own match) | — | — | — |
-| Submit Donation Report | ✅ (matched donor) | — | — | — |
-| Confirm Donation | — | ✅ (chapter) | ✅ (all) | — |
-| Reject Donation | — | ✅ (chapter) | ✅ (all) | — |
-| Fulfill Blood Request | (system) | (system) | (system) | — |
-| Receive Notifications | (system) | (system) | (system) | — |
-| View Notifications | ✅ | ✅ | ✅ | — |
-| Mark Notification as Read | ✅ | ✅ | ✅ | — |
+| Register Account | ✅ | - | - | - |
+| Log In | ✅ | ✅ | ✅ | - |
+| Log Out | ✅ | ✅ | ✅ | - |
+| Reset Password | ✅ | ✅ | ✅ | - |
+| Manage Profile | ✅ | ✅ | ✅ | - |
+| Manage Profile Picture | ✅ | ✅ | ✅ | - |
+| Select Bataan Location | ✅ | ✅ | ✅ | - |
+| Upload Verification Documents | ✅ | - | - | - |
+| Resubmit Verification | ✅ (rejected only) | - | - | - |
+| Review Member Verification | - | ✅ (own chapter) | ✅ (scope-exempt) | - |
+| Approve Verification | - | ✅ (own chapter) | ✅ (scope-exempt) | - |
+| Reject Verification | - | ✅ (own chapter) | ✅ (scope-exempt) | - |
+| Enroll as Donor | ✅ (verified only) | - | - | - |
+| Manage Donor Availability | ✅ (enrolled only) | - | - | - |
+| Check Donor Eligibility | (system) | (system) | (system) | - |
+| View Donor Status | ✅ | - | - | - |
+| Create Blood Request | ✅ (pending allowed) | - | - | - |
+| View Blood Requests | ✅ (own) | ✅ (chapter) | ✅ (all) | - |
+| View Blood Request Details | ✅ (own/matched) | ✅ (chapter) | ✅ (all) | - |
+| Edit Blood Request | ✅ (own, OPEN) | - | - | - |
+| Cancel Blood Request | ✅ (own, OPEN) | - | - | - |
+| Find Compatible Donors | (system) | (system) | (system) | - |
+| View Match Results | ✅ (own/matched) | ✅ (chapter) | ✅ (all) | - |
+| Re-run Matching | ✅ (own request) | ✅ (chapter) | ✅ (all) | - |
+| Respond to Match | ✅ (matched donor) | - | - | - |
+| Browse Home Feed | ✅ (browse capability) | ✅ | ✅ | - |
+| Accept Donor | ✅ (own request) | - | - | - |
+| Withdraw Acceptance | ✅ (own request) | - | - | - |
+| Withdraw Response | ✅ (own match) | - | - | - |
+| Manage Contact Consent | ✅ (own match) | - | - | - |
+| Exchange Contact Details | ✅ (own match) | - | - | - |
+| Submit Donation Report | ✅ (matched donor) | - | - | - |
+| Confirm Donation | - | ✅ (chapter) | ✅ (all) | - |
+| Reject Donation | - | ✅ (chapter) | ✅ (all) | - |
+| Fulfill Blood Request | (system) | (system) | (system) | - |
+| Receive Notifications | (system) | (system) | (system) | - |
+| View Notifications | ✅ | ✅ | ✅ | - |
+| Mark Notification as Read | ✅ | ✅ | ✅ | - |
 | Receive Email Alerts | (system) | (system) | (system) | ✅ |
-| Record System Activity | (system) | (system) | (system) | — |
-| View Audit Logs (Chapter) | — | ✅ | ✅ | — |
-| View Audit Logs (System) | — | — | ✅ | — |
-| View Analytics | — | ✅ (chapter) | ✅ (all) | — |
-| View Regional Blood Demand | — | ✅ (chapter) | ✅ (all) | — |
-| View Officer Dashboard | — | ✅ | — | — |
-| View Administrator Dashboard | — | — | ✅ | — |
-| Manage Users | — | — | ✅ | — |
-| Assign Roles | — | — | ✅ | — |
-| Assign Chapter | — | — | ✅ | — |
-| Deactivate/Reactivate Accounts | — | — | ✅ | — |
+| Record System Activity | (system) | (system) | (system) | - |
+| View Audit Logs (Chapter) | - | ✅ | ✅ | - |
+| View Audit Logs (System) | - | - | ✅ | - |
+| View Analytics | - | ✅ (chapter) | ✅ (all) | - |
+| View Regional Blood Demand | - | ✅ (chapter) | ✅ (all) | - |
+| View Officer Dashboard | - | ✅ | - | - |
+| View Administrator Dashboard | - | - | ✅ | - |
+| Manage Users | - | - | ✅ | - |
+| Assign Roles | - | - | ✅ | - |
+| Assign Chapter | - | - | ✅ | - |
+| Deactivate/Reactivate Accounts | - | - | ✅ | - |
 
 ---
 
@@ -154,8 +154,8 @@ The complete editable PlantUML source is provided in [`docs/use-case-diagram.pum
 
 **Rendered Diagrams (regenerated 2026-09-28 via PlantUML Server from current `.puml`; verified contains `Manage Profile Picture`, `Select Bataan Location`, Notifications, Fulfillment):**
 
-- SVG: [`docs/use-case-diagram.svg`](use-case-diagram.svg) — 104,162 bytes, vector, embedded below
-- PNG: [`docs/use-case-diagram.png`](use-case-diagram.png) — 206,987 bytes, valid PNG signature, raster fallback for Word/thesis
+- SVG: [`docs/use-case-diagram.svg`](use-case-diagram.svg) - 104,162 bytes, vector, embedded below
+- PNG: [`docs/use-case-diagram.png`](use-case-diagram.png) - 206,987 bytes, valid PNG signature, raster fallback for Word/thesis
 
 ![BloodMatch Use Case Diagram](use-case-diagram.svg)
 
@@ -192,7 +192,7 @@ The PlantUML source uses standard UML use-case notation with actors, system boun
 ### Discrepancies Found
 | Area | Documentation Claim | Actual Implementation | Resolution |
 |---|---|---|---|
-| Password Reset Email | CONTEXT.md §8.6 specifies email delivery | Phase 3 test log: "Reset-token email delivery NOT implemented — no mail transport configured in XAMPP dev" | Documented as known gap; email transport wired in Phase 10 (Mailer.php) but dev environment lacks SMTP; production deployment requires SMTP config. |
+| Password Reset Email | CONTEXT.md §8.6 specifies email delivery | Phase 3 test log: "Reset-token email delivery NOT implemented - no mail transport configured in XAMPP dev" | Documented as known gap; email transport wired in Phase 10 (Mailer.php) but dev environment lacks SMTP; production deployment requires SMTP config. |
 | "Fulfill Blood Request" as user action | User task listed | Implemented as automatic system transition when `quantity_units` threshold met via confirmed donations | Represented as system-internal use case `Fulfill Blood Request` triggered by `Confirm Donation`; not a user-initiated action. |
 | "Check Donor Eligibility" as user action | Could be interpreted as user-facing | Implemented as internal service `DonorEligibilityService` called by `MatchService`; donors see status via `View Donor Status` | Represented as system-internal use case; user-facing equivalent is `View Donor Status`. |
 | Database as actor | Common in UML examples | Excluded per AGENTS.md: "Do NOT automatically include the database as a use-case actor simply because the application uses MySQL" | Correctly excluded; database is internal infrastructure. |
@@ -213,9 +213,9 @@ The PlantUML source uses standard UML use-case notation with actors, system boun
 
 | File | Description |
 |---|---|
-| `docs/use-case-diagram.puml` | Editable PlantUML source — updated for the feed (added `Home Feed & Match Commitments` package: Browse/Accept/Unaccept/Withdraw/Consent/Contact + member links + audit/notification includes) |
-| `docs/use-case-diagram.svg` | Rendered vector — regenerated via PlantUML Server (121,270 bytes; verified all 6 new use cases present) |
-| `docs/use-case-diagram.png` | Rendered raster — regenerated via PlantUML Server (170,398 bytes, valid PNG; thesis/Word fallback) |
+| `docs/use-case-diagram.puml` | Editable PlantUML source - updated for the feed (added `Home Feed & Match Commitments` package: Browse/Accept/Unaccept/Withdraw/Consent/Contact + member links + audit/notification includes) |
+| `docs/use-case-diagram.svg` | Rendered vector - regenerated via PlantUML Server (121,270 bytes; verified all 6 new use cases present) |
+| `docs/use-case-diagram.png` | Rendered raster - regenerated via PlantUML Server (170,398 bytes, valid PNG; thesis/Word fallback) |
 | `docs/use-case-diagram.md` | This documentation file (synchronized to feed implementation: 50 use cases) |
 
 ---

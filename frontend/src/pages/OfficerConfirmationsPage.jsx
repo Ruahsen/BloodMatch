@@ -49,7 +49,7 @@ export default function OfficerConfirmationsPage() {
     <div className="container">
       <header className="app-header">
         <div>
-          <h1>Donation Confirmations: Chapter Queue</h1>
+          <h1 className="sr-only">Donation Confirmations: Chapter Queue</h1>
         </div>
       </header>
 

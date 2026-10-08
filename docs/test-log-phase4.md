@@ -1,4 +1,4 @@
-# Phase 4 Verification Log — RBAC & Chapter Scoping
+# Phase 4 Verification Log - RBAC & Chapter Scoping
 
 > Historical record (2026-08-26). Preserved as-run. Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 4 still 23/23).
 

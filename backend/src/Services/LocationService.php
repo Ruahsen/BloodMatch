@@ -69,7 +69,7 @@ final class LocationService
 
     /**
      * Validate a location_id payload and return the canonical reference row.
-     * Coordinates always come from this row — never from client input.
+     * Coordinates always come from this row - never from client input.
      */
     public static function resolveLocationId(mixed $raw): array
     {

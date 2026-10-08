@@ -26,18 +26,18 @@ final class MatchRepository
      * requester-selected bilateral commitment; COMPLETED = confirmed
      * donation on a still-OPEN (multi-unit) request.
      * Excluded: POTENTIAL (engine-inserted candidate the donor never acted
-     * on — may never even have been notified) and NOTIFIED (an "opportunity"
-     * notification, still no donor action) — surfacing those as "Match"
+     * on - may never even have been notified) and NOTIFIED (an "opportunity"
+     * notification, still no donor action) - surfacing those as "Match"
      * would duplicate compatibility ranking under a misleading label with an
      * inflated count. Also excluded: CLOSED (system-closed/ineligible) and
-     * WITHDRAWN (explicit donor withdrawal — re-surfacing it would
+     * WITHDRAWN (explicit donor withdrawal - re-surfacing it would
      * contradict the withdrawal).
      */
     public const MATCH_TAB_STATUSES = ['RESPONDED', 'ACCEPTED', 'COMPLETED'];
 
     /**
      * Distinct OPEN requests (requester still active) carrying at least one
-     * of the viewer's own qualifying match relationships. Single query —
+     * of the viewer's own qualifying match relationships. Single query -
      * no per-row lookups.
      */
     public function countMatchedOpenRequests(int $donorId): int
@@ -153,7 +153,7 @@ final class MatchRepository
     /**
      * Close a principal's ACCEPTED relationships on OPEN requests (account
      * deactivation / verification invalidation). Returns affected rows with
-     * counterpart references for notification. Targeted cleanup only — no
+     * counterpart references for notification. Targeted cleanup only - no
      * matching fan-out; COMPLETED/WITHDRAWN history is preserved.
      *
      * @return array<int, array{match_id:int, request_id:int, donor_id:int, requester_id:int, reason:string}>
@@ -213,7 +213,7 @@ final class MatchRepository
 
     /**
      * A donor's own match rows keyed by request (single query for feed action
-     * state — no per-row lookups). Includes every status; callers decide what
+     * state - no per-row lookups). Includes every status; callers decide what
      * each state means for actions.
      *
      * @return array<int, array{match_id:int, status:string}>

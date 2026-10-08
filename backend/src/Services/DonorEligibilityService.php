@@ -16,7 +16,7 @@ final class DonorEligibilityService
      * Safety/identity prerequisites for COMMITTING a donor relationship
      * (acceptance, donation confirmation). Unlike the candidate pool
      * predicate (MatchService::poolWhereClause), this intentionally omits
-     * scheduling rules — availability toggles, post-donation standby, and
+     * scheduling rules - availability toggles, post-donation standby, and
      * inter-donation cooldown govern FUTURE candidacy, not whether an
      * already-responded donor relationship may be committed or a physically
      * completed donation may be confirmed. Account activity, verification,

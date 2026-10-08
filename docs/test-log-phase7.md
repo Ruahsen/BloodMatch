@@ -1,15 +1,15 @@
-# Phase 7 Verification Log — Compatibility & Matching Engine
+# Phase 7 Verification Log - Compatibility & Matching Engine
 
 > Historical record (2026-08-26). Preserved as-run. Current implementation uses `BloodCompatibilityService.php` + `MatchService.php` + `Geo.php` (no `MatchingEngine.php`/`DistanceCalculator.php` aliases); proximity via backend-resolved `location_id` (see `docs/test-log-location.md` L01–L20). Current baseline 12/12, 343 (Phase 7 still 28/28).
 
 Executed: 2026-08-26 · Suite: `tests/phase7.ps1` (28 assertions) · **Result: 28 passed, 0 failed**
-Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35** — all unchanged
+Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35** - all unchanged
 Full sweep on fresh log: zero PHP warnings/errors; React build clean; smoke PASS
 
 ## Schema additions (migrations 009–010 + seed)
 
-- `compatibility_matrix`: recipient_type PK over the 8 ABO/Rh types; `allowed_donor_types` CSV. Red-cell rules only — seeded idempotently.
-- `matches`: UNIQUE(request_id, donor_id) — one persistent row per pair; `generation` = last generation in which the pair was eligible; status enum POTENTIAL/NOTIFIED/RESPONDED/COMPLETED/CLOSED; distance_km/rank_score snapshots.
+- `compatibility_matrix`: recipient_type PK over the 8 ABO/Rh types; `allowed_donor_types` CSV. Red-cell rules only - seeded idempotently.
+- `matches`: UNIQUE(request_id, donor_id) - one persistent row per pair; `generation` = last generation in which the pair was eligible; status enum POTENTIAL/NOTIFIED/RESPONDED/COMPLETED/CLOSED; distance_km/rank_score snapshots.
 
 ## Donor enrollment decision (ratified)
 
@@ -17,7 +17,7 @@ Verified members are **NOT** implicitly donors. Matching pool requires ALL of:
 `role='member'` ∧ `account_status='active'` ∧ `verification_status='verified'` ∧
 `donor_enrolled_at IS NOT NULL` ∧ `donor_availability='available'`.
 
-Minimum backend capability added: `POST /api/profile/enroll-donor` — requires verified status,
+Minimum backend capability added: `POST /api/profile/enroll-donor` - requires verified status,
 DOB-based age eligibility (§9.2: <16 no; 16–17 parental_consent doc), idempotent when already
 enrolled; sets `donor_enrolled_at=UTC now`, `availability='available'`; audited `donor.enrolled`.
 No donation completion / standby / cooldown / response logic implemented.
@@ -43,7 +43,7 @@ No donation completion / standby / cooldown / response logic implemented.
 ## Bugs found & fixed during verification
 
 1. `UserRepository::findById()` missing `donor_enrolled_at` column → enrollment endpoint fatal.
-2. Test-harness issues: fixtures without DOB (correctly rejected by age gate — system right, test wrong); T8a originally targeted the wrong fixture user.
+2. Test-harness issues: fixtures without DOB (correctly rejected by age gate - system right, test wrong); T8a originally targeted the wrong fixture user.
 
 ## Known gaps / deferred
 

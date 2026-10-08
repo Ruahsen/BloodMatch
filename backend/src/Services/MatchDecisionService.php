@@ -129,7 +129,7 @@ final class MatchDecisionService
                 }
                 if (in_array($status, ['RESPONDED', 'ACCEPTED', 'COMPLETED'], true)) {
                     // Idempotent replay (double-click/retries): state already
-                    // reflects willingness — no transition, no new audit row,
+                    // reflects willingness - no transition, no new audit row,
                     // no new notification.
                     $reconciled = false;
                     $changed = false;
@@ -288,7 +288,7 @@ final class MatchDecisionService
             // A RESPONDED row may have gone stale (availability toggled,
             // standby/cooldown onset, verification loss, incompatibility,
             // age change). A new ACCEPTED commitment requires the full live
-            // candidate gate — unlike an already-ACCEPTED relationship,
+            // candidate gate - unlike an already-ACCEPTED relationship,
             // which survives ordinary scheduling changes by design.
             $donor = (new UserRepository())->findByIdForUpdate((int) $match['donor_id']);
             if ($donor === null || (string) $donor['account_status'] !== 'active') {
@@ -367,7 +367,7 @@ final class MatchDecisionService
     public function unaccept(int $matchId, int $requesterId): array
     {
         // Lock order: request row first (pre-read supplies its id), then
-        // match row — the same order accept/confirm use.
+        // match row - the same order accept/confirm use.
         $pre = (new MatchRepository())->findByIdDetailed($matchId);
         if ($pre === null) {
             throw new RuntimeException('Match not found.', 404);
@@ -402,7 +402,7 @@ final class MatchDecisionService
             }
 
             // Willingness (RESPONDED) survives; the requester's acceptance
-            // decision — and therefore their contact consent — is reversed.
+            // decision - and therefore their contact consent - is reversed.
             $pdo->prepare(
                 "UPDATE matches SET status = 'RESPONDED', requester_share_consent = 0 WHERE id = ?"
             )->execute([$matchId]);
@@ -451,7 +451,7 @@ final class MatchDecisionService
     public function withdraw(int $matchId, int $donorId): array
     {
         // Lock order: request row first (pre-read supplies its id), then
-        // match row — the same order accept/confirm use.
+        // match row - the same order accept/confirm use.
         $pre = (new MatchRepository())->findByIdDetailed($matchId);
         if ($pre === null) {
             throw new RuntimeException('Match not found.', 404);
@@ -608,7 +608,7 @@ final class MatchDecisionService
     /**
      * Close a user's OPEN ACCEPTED relationships after an administrative or
      * safety event (deactivation, verification rejection, incompatible
-     * blood-type change). Targeted cleanup only — no matching fan-out.
+     * blood-type change). Targeted cleanup only - no matching fan-out.
      * Notifies the unaffected principal of each relationship.
      */
     public function closeAcceptedForInvalidatedUser(int $userId, string $reason, ?int $actorId): int

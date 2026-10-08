@@ -14,7 +14,7 @@ use BloodMatch\Config\Env;
  * ONLY the notification's own title/body (already intended for this
  * recipient) plus BloodMatch branding, a timestamp, a deep link, and a
  * footer. Templates never pull contact details, coordinates, tokens, or any
- * other user's personal information — bilateral contact rules are untouched
+ * other user's personal information - bilateral contact rules are untouched
  * (see MatchDecisionService::contact).
  *
  * Add a new notification type by extending actionPathFor(); unknown types

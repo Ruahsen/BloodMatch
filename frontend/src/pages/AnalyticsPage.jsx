@@ -66,7 +66,7 @@ export default function AnalyticsPage() {
     <div className="container">
       <header className="app-header">
         <div>
-          <h1>Analytics & Operational Reporting</h1>
+          <h1 className="sr-only">Analytics & Operational Reporting</h1>
         </div>
       </header>
 

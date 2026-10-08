@@ -72,7 +72,7 @@ export default function OfficerVerificationPage() {
     <div className="container">
       <header className="app-header">
         <div>
-          <h1>Member Verifications: Chapter Queue</h1>
+          <h1 className="sr-only">Member Verifications: Chapter Queue</h1>
         </div>
       </header>
 

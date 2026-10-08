@@ -353,6 +353,47 @@ main.container > .container:not(.narrow) {
 }
 [data-theme='dark'] .nav-link.active { box-shadow: none; }
 
+/* Icon-only nav links (authenticated Home / Profile / My Requests):
+   monochrome, theme-aware, keyboard accessible. Text labels move to
+   aria-label + title so sighted users get tooltips and AT gets names. */
+.nav-link.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+.nav-link.nav-icon:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border);
+  text-decoration: none;
+}
+.nav-link.nav-icon.active,
+.nav-link.nav-icon[aria-current="page"] {
+  color: var(--color-text);
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border);
+  border-bottom-color: var(--color-border);
+  font-weight: 600;
+}
+.nav-link.nav-icon:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Mobile rows keep icon + text for clarity at narrow widths. */
+.mobile-link-content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .nav-actions {
   display: flex;
   align-items: center;
@@ -1543,6 +1584,19 @@ tbody tr:hover { background: var(--color-surface-hover); }
 .muted { color: var(--color-text-muted); }
 .text-center { text-align: center; }
 .text-right { text-align: right; }
+/* Screen-reader only: visually hidden, still announced by AT.
+   Used for page headings the design hides visually. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .font-mono { font-family: var(--font-mono); }
 .font-pixel { font-family: var(--font-pixel); letter-spacing: 0; }
 .pixel-accent {
@@ -1735,4 +1789,283 @@ tbody tr:hover { background: var(--color-surface-hover); }
 @media (max-width: 900px) {
   .feed-layout { grid-template-columns: 1fr; }
   .feed-rail { position: static; order: -1; }
+}
+
+/* Near You proximity filter: single self-explanatory switch row.
+   No separate checkbox square, no helper paragraph — the MapPin icon
+   names the subject, the toggle shows the state. Monochrome,
+   theme-aware via --color-accent (black on light, white on dark). */
+.field--near { gap: var(--space-2); }
+.near-you-switch {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.near-you-switch:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
+}
+.near-you-switch:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+.near-you-switch.is-active { border-color: var(--color-border-strong); }
+.near-you-switch:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.near-you-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.near-you-switch .near-you-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
+.switch-track {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.switch-knob {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+.near-you-switch.is-active .switch-track {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.near-you-switch.is-active .switch-knob {
+  transform: translateX(16px);
+  background: var(--color-accent-fg);
+}
+.near-you-switch:disabled .switch-track { border-color: var(--color-border); }
+.field--near .field-hint { margin-top: 2px; }
+
+/* ==========================================================================
+   Registration wizard: ledger step indicator + review cards
+   Monochrome by design (black-and-white identity, theme-aware via tokens).
+   Signature: numbered ledger dots joined by a ruled line, review cards
+   set like ruled ledger entries with dashed row separators.
+   ========================================================================== */
+.reg-steps {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.reg-step {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+.reg-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.reg-num { line-height: 1; }
+.reg-step-text { min-width: 0; }
+.reg-step-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reg-link {
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 12px;
+  margin: 0 var(--space-2);
+  background: var(--color-border);
+}
+.reg-step.is-current { color: var(--color-text); }
+.reg-step.is-current .reg-dot {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+.reg-step.is-current .reg-step-label { font-weight: 600; }
+.reg-step.is-done { color: var(--color-text); }
+.reg-step.is-done .reg-dot {
+  background: transparent;
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+@media (max-width: 480px) {
+  .reg-steps { padding: var(--space-3); }
+  .reg-step-label { font-size: 0.5625rem; }
+  .reg-link { min-width: 6px; margin: 0 var(--space-1); }
+}
+
+.review-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  padding: var(--space-4);
+}
+.review-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.review-list { margin: 0; display: flex; flex-direction: column; }
+.review-list > div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+.review-list > div:last-child { border-bottom: none; padding-bottom: 0; }
+.review-list dt {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  padding-top: 0.2rem;
+}
+.review-list dd {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 550;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .review-list > div { grid-template-columns: 1fr; gap: 2px; }
+}
+
+.file-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+.file-chip-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+/* Registration eyebrow: same mono voice as kicker, without the rule. */
+.reg-kicker {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+/* Registration requirement checklist: shows exactly what is still
+   needed before Next enables. Monochrome, theme-aware via tokens. */
+.req-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.req-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.req-list li.is-met { color: var(--color-text); }
+.req-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+.req-list li.is-met .req-dot {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-fg);
 }

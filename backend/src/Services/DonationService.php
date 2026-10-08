@@ -210,7 +210,7 @@ final class DonationService
         \BloodMatch\Services\NotificationService::notify(
             (int) $pre['donor_id'],
             'donation.' . ($confirm ? 'confirmed' : 'rejected'),
-            $confirm ? 'Donation confirmed — thank you!' : 'Donation report rejected',
+            $confirm ? 'Donation confirmed - thank you!' : 'Donation report rejected',
             $confirm
                 ? 'Your donation was confirmed. Thank you for saving a life!'
                 : ('Your donation report could not be confirmed.' . ($pre['report_note'] !== null ? '' : '')),

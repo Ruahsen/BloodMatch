@@ -53,7 +53,7 @@ export default function AdminDashboardPage() {
       <header className="app-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-            <h1 style={{ margin: 0 }}>System Administration Dashboard</h1>
+            <h1 className="sr-only">System Administration Dashboard</h1>
             <span className="badge badge-open">Global Overview</span>
           </div>
         </div>

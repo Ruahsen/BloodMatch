@@ -1,4 +1,4 @@
-# BloodMatch — API Inventory & Contract Reference
+# BloodMatch - API Inventory & Contract Reference
 
 > Current as of 2026-10-07 (migrations 001–020, registration-time email OTP). Source: `backend/routes/api.php` (66 method+path registrations) + controllers/services. Historical Phase-17 revision documented 26 endpoints / 001–014 schema (see `docs/test-log-phase17.md`); this file supersedes it. Envelope: `Response::success` → `{success:true,data:{...}}`; `Response::error` → `{success:false,error:{message,details?}}`.
 
@@ -25,7 +25,7 @@ All responses adhere to the standard JSON envelopes:
 ### `GET /api/chapters`
 - **Purpose:** Retrieve the list of fixed Bataan chapters for registration and filtering.
 - **Auth:** Public / Anonymous.
-- **Response:** `{ "chapters": [{ "id": 1, "code": "mt_samat", "name": "Mt. Samat Chapter", "municipality": "Orani" }, ...] }` (3 rows; no coordinates on this endpoint — chapter canonical centroids live in `chapters.latitude/longitude` and surface only via `GET /api/demand-map`).
+- **Response:** `{ "chapters": [{ "id": 1, "code": "mt_samat", "name": "Mt. Samat Chapter", "municipality": "Orani" }, ...] }` (3 rows; no coordinates on this endpoint - chapter canonical centroids live in `chapters.latitude/longitude` and surface only via `GET /api/demand-map`).
 
 ### `GET /api/locations/municipalities`
 - **Purpose:** Retrieve the 12 Bataan cities/municipalities (PSGC province 030800000) for the cascading location selector.
@@ -45,7 +45,7 @@ All responses adhere to the standard JSON envelopes:
 ## 2. Authentication & Password Management
 
 ### `POST /api/register`
-- **Purpose:** Create a new user account (defaults to `member` role, `pending` verification, `active` account). Location is not collected here — raw `latitude`/`longitude` are rejected with `location_id` guidance; set location after registration via `PUT /api/profile`.
+- **Purpose:** Create a new user account (defaults to `member` role, `pending` verification, `active` account). Location is not collected here - raw `latitude`/`longitude` are rejected with `location_id` guidance; set location after registration via `PUT /api/profile`.
 - **Auth:** Public / Anonymous. Requires CSRF token.
 - **Rate Limit:** 5 requests / IP / minute.
 - **Request Body:**
@@ -61,8 +61,8 @@ All responses adhere to the standard JSON envelopes:
     "privacy_acknowledged": true
   }
   ```
-  (`privacy_acknowledged` mandatory — `true`/`1`/`"1"`/`"true"`/`"on"`/`"yes"` accepted; missing/false/invalid → 400 + `error.details.privacy_acknowledged`. Verified in `tests/phase3.ps1` T05b–T05d; frontend `RegisterPage.jsx` + `PrivacyNoticeModal.jsx` enforce checkbox + modal.)
-- **Response (201):** `{ "success": true, "data": { "user": { "id": 42, ... }, "email_otp": { "required": true, "delivered": true, "masked_email": "m***@example.com", "expires_in_seconds": 600, "resend_available_in_seconds": 60, "verification_token": "<64_hex>" } } }` — account creation automatically issues the first 6-digit OTP to the registered address and mints a single-purpose claim token (migration 020) so the still-logged-out registrant can verify. No session is created. If delivery fails, the account still stands with `"delivered": false`, nothing is marked verified, and the token authorizes a resend.
+  (`privacy_acknowledged` mandatory - `true`/`1`/`"1"`/`"true"`/`"on"`/`"yes"` accepted; missing/false/invalid → 400 + `error.details.privacy_acknowledged`. Verified in `tests/phase3.ps1` T05b–T05d; frontend `RegisterPage.jsx` + `PrivacyNoticeModal.jsx` enforce checkbox + modal.)
+- **Response (201):** `{ "success": true, "data": { "user": { "id": 42, ... }, "email_otp": { "required": true, "delivered": true, "masked_email": "m***@example.com", "expires_in_seconds": 600, "resend_available_in_seconds": 60, "verification_token": "<64_hex>" } } }` - account creation automatically issues the first 6-digit OTP to the registered address and mints a single-purpose claim token (migration 020) so the still-logged-out registrant can verify. No session is created. If delivery fails, the account still stands with `"delivered": false`, nothing is marked verified, and the token authorizes a resend.
 - **Errors:** 400 Validation Error (missing fields, weak password, invalid email, missing/invalid `privacy_acknowledged`, raw coordinates), 409 Email already registered. Failed registrations create no account, no OTP, and no claim token.
 
 ### `POST /api/login`
@@ -70,8 +70,8 @@ All responses adhere to the standard JSON envelopes:
 - **Auth:** Public / Anonymous.
 - **Rate Limit:** 5 failed attempts per email throttle (locks for 15 minutes).
 - **Request Body:** `{ "email": "maria@example.com", "password": "Password123" }`
-- **Response (200):** `{ "user": { "id": 42, "email": "...", "role": "member", "chapter_id": 1, ... }, "csrf_token": "..." }` — the server rotates CSRF at login; clients must adopt `csrf_token` (or re-fetch `GET /api/csrf`) before the next mutation.
-- **Errors:** 401 Invalid credentials (uniform for unknown email and wrong password — no enumeration oracle), 403 Deactivated account, 403 Email verification required (`error.details`: `{ "code": "email_verification_required", "masked_email": "m***@example.com", "verification_token": "<64_hex>" }` — correct password but `email_verified_at IS NULL`; no session is created; the claim token gives an immediate path back to `/verify-email`), 429 Too many failed login attempts.
+- **Response (200):** `{ "user": { "id": 42, "email": "...", "role": "member", "chapter_id": 1, ... }, "csrf_token": "..." }` - the server rotates CSRF at login; clients must adopt `csrf_token` (or re-fetch `GET /api/csrf`) before the next mutation.
+- **Errors:** 401 Invalid credentials (uniform for unknown email and wrong password - no enumeration oracle), 403 Deactivated account, 403 Email verification required (`error.details`: `{ "code": "email_verification_required", "masked_email": "m***@example.com", "verification_token": "<64_hex>" }` - correct password but `email_verified_at IS NULL`; no session is created; the claim token gives an immediate path back to `/verify-email`), 429 Too many failed login attempts.
 
 ### `POST /api/logout`
 - **Purpose:** Destroy server session, delete active session record, and issue cleared session cookie with identical security flags.
@@ -98,18 +98,18 @@ All responses adhere to the standard JSON envelopes:
 - **Errors:** 400 Invalid, expired, or already-used token; 403 account deactivated; 429 too many failed confirmations. Consumption is atomic: of concurrent confirms, exactly one succeeds. A successful reset bumps `users.session_version`, revoking previously issued sessions.
 
 ### `POST /api/auth/email-otp/send`
-- **Purpose:** Issue a single-use 6-digit email-ownership code (migration 019). The newest code supersedes prior unused codes; delivery goes through the shared `Mailer` transport (SMTP or `MAIL_CAPTURE_DIR` test capture). Two identity modes: signed-in session (existing), or logged-out registration journey via `verification_token` in the JSON body (explicit token wins and must validate — fail closed). Body empty or `{ "verification_token": "<64_hex>" }`; CSRF required (global middleware, anonymous sessions included).
-- **Auth:** Session user, or valid claim token (migration 020: single-purpose, ~30-min TTL, consumed on verify; authorizes send/verify/status only — never a session).
+- **Purpose:** Issue a single-use 6-digit email-ownership code (migration 019). The newest code supersedes prior unused codes; delivery goes through the shared `Mailer` transport (SMTP or `MAIL_CAPTURE_DIR` test capture). Two identity modes: signed-in session (existing), or logged-out registration journey via `verification_token` in the JSON body (explicit token wins and must validate - fail closed). Body empty or `{ "verification_token": "<64_hex>" }`; CSRF required (global middleware, anonymous sessions included).
+- **Auth:** Session user, or valid claim token (migration 020: single-purpose, ~30-min TTL, consumed on verify; authorizes send/verify/status only - a successful claim-mode verify signs the user in).
 - **Rate Limits:** 60s resend cooldown per user (429 while cooling down); max 5 sends per user per hour (429, shared across both modes).
 - **Response (200):** `{ "already_verified": false, "message": "Verification code sent.", "expires_in_seconds": 600, "resend_available_in_seconds": 60 }`, or `{ "already_verified": true, "message": "Email is already verified." }` (no row, no email when already verified).
 - **Errors:** 401 unauthenticated/invalid token, 403 deactivated/CSRF, 422 no deliverable address, 429 cooldown/budget, 503 email delivery failed (the unused OTP row is deleted; nothing is marked verified).
 
 ### `POST /api/auth/email-otp/verify`
-- **Purpose:** Prove ownership of the registered email with the 6-digit code. Body-only (`code`, plus optional `verification_token`, in JSON — never in query string/URL). Consumes the code atomically (exactly one winner under concurrent submits); sets `users.email_verified_at` (first verification wins). Claim-mode success also consumes the claim token and creates no session (the user signs in afterwards). Orthogonal to `verification_status`/`account_status`: verifying an email never verifies a donor, officer, or medical eligibility, and gates no capabilities.
+- **Purpose:** Prove ownership of the registered email with the 6-digit code. Body-only (`code`, plus optional `verification_token`, in JSON - never in query string/URL). Consumes the code atomically (exactly one winner under concurrent submits); sets `users.email_verified_at` (first verification wins). Claim-mode success also consumes the claim token and signs the user straight in (response carries `user` + `csrf_token`; no separate sign-in step). Orthogonal to `verification_status`/`account_status`: verifying an email never verifies a donor, officer, or medical eligibility, and gates no capabilities.
 - **Auth:** Session user, or valid claim token.
 - **Request Body:** `{ "code": "482916" }` or `{ "verification_token": "<64_hex>", "code": "482916" }`
-- **Response (200):** `{ "verified": true, "email_verified_at": "<utc>" }`
-- **Errors:** 400 generic `Invalid or expired code.` (wrong/malformed/expired/used-up/exhausted/superseded — no oracle), 401 invalid token, 403 deactivated, otherwise as above. Max 5 failed attempts per code, then the code is exhausted and a resend is required. Password-reset tokens (64-hex) are format-rejected and can never verify; OTP codes can never reset a password.
+- **Response (200):** `{ "verified": true, "email_verified_at": "<utc>" }`, plus `user` + `csrf_token` in claim mode (auto sign-in).
+- **Errors:** 400 generic `Invalid or expired code.` (wrong/malformed/expired/used-up/exhausted/superseded - no oracle), 401 invalid token, 403 deactivated, otherwise as above. Max 5 failed attempts per code, then the code is exhausted and a resend is required. Password-reset tokens (64-hex) are format-rejected and can never verify; OTP codes can never reset a password.
 
 ### `GET /api/auth/email-otp/status`
 - **Purpose:** Verification state for the signed-in owner (drives the `/verify-email` UI cooldown/expiry display). Never exposes code/hash material.
@@ -134,14 +134,14 @@ All responses adhere to the standard JSON envelopes:
 ### `PUT /api/profile`
 - **Purpose:** Update personal profile details (name, phone, birthdate, self-reported blood type, Bataan location).
 - **Auth:** Authenticated.
-- **Request Body:** `{ "full_name": "...", "phone": "...", "date_of_birth": "YYYY-MM-DD", "blood_type": "O+", "location_id": 161 }` — `location_id` references `bataan_locations`; coordinates resolve server-side. Raw `latitude`/`longitude` keys are rejected (400).
+- **Request Body:** `{ "full_name": "...", "phone": "...", "date_of_birth": "YYYY-MM-DD", "blood_type": "O+", "location_id": 161 }` - `location_id` references `bataan_locations`; coordinates resolve server-side. Raw `latitude`/`longitude` keys are rejected (400).
 - **Response (200):** `{ "profile": { ...updatedUser, "location": { "municipality_name": "Orani", "barangay_name": null, ... } } }`
 
 ### `POST /api/profile/documents`
 - **Purpose:** Upload identity or donor verification document (JPG, PNG, WEBP, PDF up to 5 MB).
 - **Auth:** Authenticated. Requires CSRF.
 - **Rate Limit:** 10 uploads / 5 minutes (`SEC-LOW-02`).
-- **Multipart Form:** `file` (binary), `doc_type` (`national_id` | `donor_card` | `parental_consent`), `privacy_acknowledged` (`1`/`true` mandatory ID Privacy Notice acknowledgment — missing/false → 400 + `error.details.privacy_acknowledged`; verified `tests/phase5.ps1` B1b–B1c; frontend `ProfilePage.jsx` + `PrivacyNoticeModal.jsx`).
+- **Multipart Form:** `file` (binary), `doc_type` (`national_id` | `donor_card` | `parental_consent`), `privacy_acknowledged` (`1`/`true` mandatory ID Privacy Notice acknowledgment - missing/false → 400 + `error.details.privacy_acknowledged`; verified `tests/phase5.ps1` B1b–B1c; frontend `ProfilePage.jsx` + `PrivacyNoticeModal.jsx`).
 - **Response (201):** `{ "document": { "id": 10, "doc_type": "donor_card", "size_bytes": 104857 } }`
 
 ### `GET /api/profile/documents`
@@ -187,7 +187,7 @@ All responses adhere to the standard JSON envelopes:
 - **Notes:** Does not affect verification, matching, or eligibility.
 
 ### `GET /api/profile/picture`
-- **Purpose:** Stream own profile picture bytes (owner-only; no cross-user access — other user without picture gets 404).
+- **Purpose:** Stream own profile picture bytes (owner-only; no cross-user access - other user without picture gets 404).
 - **Auth:** Authenticated (Owner only).
 - **Response (200):** image bytes (`Content-Type: image/*`, `Content-Disposition: inline`); 404 when none/invalid/missing.
 - **Frontend:** `ProfilePage.jsx` upload section + `NavbarAvatar` in `App.jsx` (fallback `User` icon when null/fails).
@@ -217,7 +217,7 @@ All responses adhere to the standard JSON envelopes:
     "location_id": 26
   }
   ```
-  (`location_id` references `bataan_locations`; facility coordinates resolve server-side. Raw `latitude`/`longitude` keys are rejected. Omitting `location_id` keeps the request location empty — proximity ranking is then skipped for it.)
+  (`location_id` references `bataan_locations`; facility coordinates resolve server-side. Raw `latitude`/`longitude` keys are rejected. Omitting `location_id` keeps the request location empty - proximity ranking is then skipped for it.)
 - **Response (201):** `{ "message": "Blood request created", "request_id": 101, "matches_count": 4 }`
 
 ### `GET /api/requests/{id}`
@@ -282,7 +282,7 @@ All responses adhere to the standard JSON envelopes:
 - **Response (200):** `{ "message": "Willingness to donate recorded", "match_status": "RESPONDED" }`
 
 ### `POST /api/requests/{id}/respond`
-- **Purpose:** Request-scoped Respond — primary action for the Home feed. Reconciles a possibly missing/stale persisted relationship from live donor state (newly eligible donors have no match row yet), then transitions to `RESPONDED`. Shares one implementation with match-scoped respond (`MatchDecisionService::respondDonor`); never invokes candidate generation and never emits `match.new`. WITHDRAWN rows are terminal (409).
+- **Purpose:** Request-scoped Respond - primary action for the Home feed. Reconciles a possibly missing/stale persisted relationship from live donor state (newly eligible donors have no match row yet), then transitions to `RESPONDED`. Shares one implementation with match-scoped respond (`MatchDecisionService::respondDonor`); never invokes candidate generation and never emits `match.new`. WITHDRAWN rows are terminal (409).
 - **Auth:** Authenticated (Any eligible donor; request must be OPEN).
 - **Request Body:** `{ "donor_share_consent": true }` (required, 422 otherwise).
 - **Response (200):** `{ "message": "Response recorded.", "status": "RESPONDED", "match_id": 501 }`
@@ -317,11 +317,11 @@ All responses adhere to the standard JSON envelopes:
 - **Errors:** 404 non-principal (existence not leaked), 403 principal in invalid state (incl. after unaccept/withdraw/cancel/expire/fulfill/deactivation/consent revoke).
 
 ### `GET /api/requests/feed`
-- **Purpose:** Authenticated Home feed: OPEN requests whose requester is active, ranked for the viewer. Member-safe serializer: location labels + `approximate_distance_km` only — no `latitude`/`longitude`/`email`/`phone`/documents. Server-derived `primary_action` + `action_reason` per item (`match_id` is the viewer's own match only).
+- **Purpose:** Authenticated Home feed: OPEN requests whose requester is active, ranked for the viewer. Member-safe serializer: location labels + `approximate_distance_km` only - no `latitude`/`longitude`/`email`/`phone`/documents. Server-derived `primary_action` + `action_reason` per item (`match_id` is the viewer's own match only).
 - **Ranking (finalized contract):** normal mode `compatibility/actionability tier → urgency → needed datetime → distance → created DESC → id DESC`; **Near You intentionally promotes distance to the first secondary key** (`tier → distance → urgency → needed → created DESC → id DESC`) so nearby actionable requests surface first when the viewer opts into proximity.
 - **Auth:** Authenticated with `CapabilityMatrix.browse_requests !== false` (rejected/deactivated → 403).
 - **Query Params:** `feed_scope` (`all` default | `match` | `critical`; anything else 400), `blood_type` (8-enum), `urgency` (3-enum), `chapter_id` (existing chapter), `near_me=1` (requires viewer location, else 400; excludes unlocated requests), `page` (≥1), `page_size` (1–50, default 15). Raw `latitude`/`longitude` params rejected 400.
-- **Scopes:** `match` restricts candidates to distinct OPEN requests carrying one of the viewer's own action-backed match relationships (`RESPONDED`/`ACCEPTED`/`COMPLETED`; `CLOSED`/`WITHDRAWN` excluded, as are `POTENTIAL`/`NOTIFIED` engine candidacy rows the donor never acted on) via a single subquery — ranking within the narrowed set is unchanged. `critical` forces `urgency=critical`, ANDed with the right-side filters.
+- **Scopes:** `match` restricts candidates to distinct OPEN requests carrying one of the viewer's own action-backed match relationships (`RESPONDED`/`ACCEPTED`/`COMPLETED`; `CLOSED`/`WITHDRAWN` excluded, as are `POTENTIAL`/`NOTIFIED` engine candidacy rows the donor never acted on) via a single subquery - ranking within the narrowed set is unchanged. `critical` forces `urgency=critical`, ANDed with the right-side filters.
 - **Response (200):** `{ "requests": [ { "id": 9, "required_blood_type": "A+", ..., "compatibility_tier": 0, "is_own": false, "my_match_status": null, "match_id": null, "primary_action": "respond", "action_reason": "ready" } ], "total": 285, "page": 1, "page_size": 15, "match_count": 3, "viewer": { "has_location": true } }` (`match_count` = distinct OPEN requests with the viewer's own qualifying matches, independent of right-side filters.)
 
 ### `POST /api/donation-reports`
@@ -369,7 +369,7 @@ All responses adhere to the standard JSON envelopes:
 - **Response (200):** `{ "pending_reports": [ ...reports ] }`
 
 ### `POST /api/officer/donation-reports/{id}/confirm`
-- **Purpose:** Confirm donation. Executes atomic transaction (lock order request → match → report): re-checks request OPEN + match `RESPONDED`/`ACCEPTED` (any other state — `POTENTIAL`/`NOTIFIED`/`CLOSED`/`WITHDRAWN` — rejects with 409 and no side effects), re-validates donor safety prerequisites (active, verified, enrolled, compatible, age-eligible; scheduling rules excluded), enforces capacity for `RESPONDED`→`COMPLETED`, marks report CONFIRMED, marks match COMPLETED, updates donor's `last_verified_donation_at`, activates Standby (42h) / Cooldown (90d), evaluates fulfillment (requester notified `request.fulfilled`; displaced ACCEPTED donors notified `match.closed`).
+- **Purpose:** Confirm donation. Executes atomic transaction (lock order request → match → report): re-checks request OPEN + match `RESPONDED`/`ACCEPTED` (any other state - `POTENTIAL`/`NOTIFIED`/`CLOSED`/`WITHDRAWN` - rejects with 409 and no side effects), re-validates donor safety prerequisites (active, verified, enrolled, compatible, age-eligible; scheduling rules excluded), enforces capacity for `RESPONDED`→`COMPLETED`, marks report CONFIRMED, marks match COMPLETED, updates donor's `last_verified_donation_at`, activates Standby (42h) / Cooldown (90d), evaluates fulfillment (requester notified `request.fulfilled`; displaced ACCEPTED donors notified `match.closed`).
 - **Auth:** Authenticated (`officer` or `admin` role; officers same-chapter, no self-confirmation).
 - **Response (200):** `{ "message": "Donation confirmed", "request_fulfilled": false }`
 

@@ -73,7 +73,7 @@ to it and leave `MAIL_CAPTURE_DIR` empty.
 - **Throttles (email leg only, in-app always created):** 5 normal emails per
   user per hour; critical `match.new` bypasses that budget but is capped at
   3 per donor per request per hour; match fan-out capped at 500 donors per
-  generation. Tracked via `notifications.emailed_at` — no extra table.
+  generation. Tracked via `notifications.emailed_at` - no extra table.
 - **Synchronous best-effort** (no queue): appropriate for DeMolay-Bataan
   scale; SMTP has a 10 s default timeout so requests never hang long.
 
@@ -84,7 +84,7 @@ for that recipient) plus chrome (branding, timestamp, links, footer). They
 never add passwords, tokens, coordinates, phone numbers, documents, or any
 other user's email. Bilateral contact (`matches.contact` gating + consent)
 is untouched: receiving an email grants no contact access. There is no
-notification-preference store yet — email is always attempted when flagged,
+notification-preference store yet - email is always attempted when flagged,
 configured, and under throttle. A future opt-out preference is recommended
 before any high-volume use, but was deliberately not added here to avoid
 inventing requirements.

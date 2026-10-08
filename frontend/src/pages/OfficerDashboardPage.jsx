@@ -56,7 +56,7 @@ export default function OfficerDashboardPage() {
       <header className="app-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-            <h1 style={{ margin: 0 }}>Chapter Officer Dashboard</h1>
+            <h1 className="sr-only">Chapter Officer Dashboard</h1>
             <span className="badge badge-open">
               {chapter.name} ({chapter.municipality})
             </span>

@@ -46,7 +46,7 @@ final class EmailOtpClaimRepository
 
     /**
      * One live token per account: a fresh registration supersedes any
-     * leftover unused token (e.g. abandoned re-registration attempts —
+     * leftover unused token (e.g. abandoned re-registration attempts -
      * the unique-email gate normally prevents these, this is belt-and-braces).
      */
     public function deleteUnusedForUser(int $userId): void

@@ -75,7 +75,7 @@ final class BloodRequestRepository
 
         if ($matchedDonorId !== null && $matchStatuses !== []) {
             // Match-tab scope: only requests carrying one of the viewer's own
-            // qualifying match relationships. Single subquery — no N+1.
+            // qualifying match relationships. Single subquery - no N+1.
             $ph = implode(',', array_fill(0, count($matchStatuses), '?'));
             $where .= " AND br.id IN (SELECT m.request_id FROM matches m WHERE m.donor_id = ? AND m.status IN ($ph))";
             $params[] = $matchedDonorId;

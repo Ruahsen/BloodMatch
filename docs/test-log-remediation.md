@@ -1,4 +1,4 @@
-# BloodMatch — Test Log: 018 Remediation Hardening (2026-10-01)
+# BloodMatch - Test Log: 018 Remediation Hardening (2026-10-01)
 
 > Current regression baseline after the audit-driven remediation pass
 > (migration 018 + lifecycle/concurrency/auth/privacy/feed/validation fixes).

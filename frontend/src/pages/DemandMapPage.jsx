@@ -53,7 +53,7 @@ export default function DemandMapPage() {
     <div className="container">
       <header className="app-header">
         <div>
-          <h1>Regional Blood Demand Map</h1>
+          <h1 className="sr-only">Regional Blood Demand Map</h1>
         </div>
         <div className="button-group">
           {user?.role === 'officer' && (

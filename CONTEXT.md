@@ -1,4 +1,4 @@
-# BloodMatch — Project Context
+# BloodMatch - Project Context
 
 > **This file is the permanent source of truth for understanding the BloodMatch system before making implementation decisions.**
 > Read this file before writing any code, changing architecture, or making claims about what is implemented.
@@ -62,7 +62,7 @@ A normal registered DeMolay member can:
 - Respond to blood requests
 - View their donor/request activity
 
-A member can be **both** a blood donor and a blood requestor — no separate accounts are needed.
+A member can be **both** a blood donor and a blood requestor - no separate accounts are needed.
 
 ### 3.2 Officer / Admin
 
@@ -100,7 +100,7 @@ The highest-level administrative role. May have access to:
 **What BloodMatch is NOT:**
 
 - ❌ It does **not replace hospitals, doctors, blood banks, or professional medical services**
-- ❌ It is **NOT Facebook** — the Facebook-like aspect refers only to a familiar social-style interface where appropriate
+- ❌ It is **NOT Facebook** - the Facebook-like aspect refers only to a familiar social-style interface where appropriate
 - ✅ It **is** a matching and coordination platform; final medical suitability is determined by qualified professionals and the receiving facility
 
 ### 4.1 Out of Scope
@@ -129,11 +129,11 @@ STEP 1: Member Registration → STEP 2: Account Verification → STEP 3: Blood R
         → STEP 6: Donor Notification → STEP 7: Requestor–Donor Connection
 ```
 
-### Step 1 — Member Registration
+### Step 1 - Member Registration
 
 Member creates an account providing: name, contact info, blood type, DeMolay/member info (chapter, date of birth), account credentials, mandatory Privacy Notice acknowledgment (`privacy_acknowledged`), and other required registration data. Location is **not** collected during registration (raw `latitude`/`longitude` on register are rejected with `location_id` guidance); the Bataan municipality/barangay selector is used after registration via Profile (`PUT /api/profile { location_id }`).
 
-### Step 2 — Account Verification
+### Step 2 - Account Verification
 
 An authorized officer reviews submitted info/documents and can:
 
@@ -143,27 +143,27 @@ An authorized officer reviews submitted info/documents and can:
 
 Only appropriately verified accounts participate in sensitive donor/request workflows, per the project's existing rules.
 
-### Step 3 — Blood Request
+### Step 3 - Blood Request
 
 A requestor creates a request containing: required blood type, amount/unit info where applicable, location/facility, urgency, needed date/time, additional info, and request status.
 
-### Step 4 — Matching Engine
+### Step 4 - Matching Engine
 
 Analyzes registered donors using the predefined **biological substitution hierarchy** (see §6).
 
-### Step 5 — Location / Proximity Sorting
+### Step 5 - Location / Proximity Sorting
 
 Prioritizes compatible donors who are realistically closer to the request location.
 
-### Step 6 — Donor Notification
+### Step 6 - Donor Notification
 
-Matching donors receive smart notifications (in-app + email, with duplicate/consecutive-notification prevention — see §9.7).
+Matching donors receive smart notifications (in-app + email, with duplicate/consecutive-notification prevention - see §9.7).
 
-### Step 7 — Requestor–Donor Connection
+### Step 7 - Requestor–Donor Connection
 
 Establishes a connection between requestor and donor.
 
-> ⚠️ A "connection" does **NOT** necessarily mean live chat. The core functionality is matching/coordination itself. If live chat exists or is added, it is a communication feature **on top of** the matching system — never the core mechanism.
+> ⚠️ A "connection" does **NOT** necessarily mean live chat. The core functionality is matching/coordination itself. If live chat exists or is added, it is a communication feature **on top of** the matching system - never the core mechanism.
 
 ---
 
@@ -171,7 +171,7 @@ Establishes a connection between requestor and donor.
 
 Identifies compatible donors rather than only identical blood types. The engine uses **red-cell transfusion compatibility only** (ABO + Rh rules). Plasma, platelet, and whole-blood compatibility are out of scope. Results never replace clinical blood typing, crossmatching, or professional medical judgment.
 
-**Example — recipient requires A+:**
+**Example - recipient requires A+:**
 Compatible donor types may include:
 
 1. A+
@@ -238,7 +238,7 @@ Officers review submissions and verify users are legitimate members. Account sta
 
 ### 8.3 Automated Soft-Deactivation
 
-Instead of permanently deleting users/records, the system deactivates them — preserving historical records and database integrity.
+Instead of permanently deleting users/records, the system deactivates them - preserving historical records and database integrity.
 
 - Soft-deactivated accounts are excluded from normal donor matching
 - Implemented via e.g. `active = 1` or a more explicit status system
@@ -312,9 +312,9 @@ Specified behavior (implementation status: see §10):
 
 **Requirement texts supplied by the product owner on 2026-08-26 (verbatim):**
 
-- **FR-01 — User Registration:** The system shall allow DeMolay Bataan members to create an account by providing the required personal, chapter, and blood-related information.
-- **FR-02 — User Login and Logout:** The system shall allow registered users to securely log in and log out of their accounts.
-- **FR-04 — User Profile Management:** The system shall allow users to view and update their personal information, blood type, chapter, contact information, and donor availability.
+- **FR-01 - User Registration:** The system shall allow DeMolay Bataan members to create an account by providing the required personal, chapter, and blood-related information.
+- **FR-02 - User Login and Logout:** The system shall allow registered users to securely log in and log out of their accounts.
+- **FR-04 - User Profile Management:** The system shall allow users to view and update their personal information, blood type, chapter, contact information, and donor availability.
 
 ### 9.2 Accounts, Statuses & Permissions (FR-03, FR-10, FR-11)
 
@@ -333,7 +333,7 @@ Registered → Pending Verification → Verified
 | Status | Browse requests | Create blood request | Become donor | Appear in matches | Notifications |
 |---|---|---|---|---|---|
 | Registered | Limited | No | No | No | Account-related only |
-| Pending | Yes | Yes — request marked *pending review* | No | No | Yes, relevant system notifications |
+| Pending | Yes | Yes - request marked *pending review* | No | No | Yes, relevant system notifications |
 | Verified | Yes | Yes | Yes | Yes, if available | Yes |
 | Rejected | No | No | No | No | Rejection/status notifications only |
 | Deactivated | No | No | No | No | None |
@@ -368,7 +368,7 @@ BloodMatch checks **administrative prerequisites only** (age rule + account veri
 
 - **Red-cell transfusion compatibility only** (ABO + Rh). No plasma/platelet/whole-blood calculations. Output is advisory, never a substitute for clinical typing/crossmatching/professional judgment.
 - The engine runs **automatically when a request is created**, is **re-run when relevant donor/request eligibility information changes**, and may be **manually re-run by authorized users** for an active request.
-- Re-running updates the existing match set — it never creates duplicate matches or duplicate notifications.
+- Re-running updates the existing match set - it never creates duplicate matches or duplicate notifications.
 - A new notification occurs only on a **materially new match event** (see §9.7).
 - **Chapter membership is NOT a hard eligibility filter.** All otherwise eligible compatible donors are considered regardless of chapter. Users may optionally filter *displayed* results by chapter, but display filtering can never override compatibility, verification, availability, or other mandatory eligibility requirements.
 
@@ -398,8 +398,8 @@ Priority order (unchanged): `Compatibility → Availability → Verification →
 - **Multiple donors may remain engaged in parallel** while a request is open; accepting one donor does not cancel others (backups until FULFILLED).
 - When a request becomes FULFILLED/CANCELLED/EXPIRED, remaining unresolved matches (`POTENTIAL`/`NOTIFIED`/`RESPONDED`/`ACCEPTED`) close accordingly; `COMPLETED`/`WITHDRAWN` history is preserved.
 - `COMPLETED` requires the donation to pass the donation-confirmation workflow (§9.6); reports are accepted from `ACCEPTED` (preferred) or `RESPONDED` (operational path, never unlocks contact).
-- An `ACCEPTED` commitment survives ordinary candidate-scheduling changes (availability OFF, standby/cooldown onset, location change — distance refreshes only); it closes only on withdraw/unaccept/cancel/expire/fulfill, account deactivation, verification invalidation, or an incompatible blood-type change.
-- The Home feed (`GET /api/requests/feed`, `RequestFeedService`) ranks *requests for a viewer* — tier → urgency → needed datetime → distance — and is distinct from `MatchService`, which ranks *donors for a request*. Both share `BloodCompatibilityService`/`Geo`/`DonorEligibilityService` with no duplicated logic.
+- An `ACCEPTED` commitment survives ordinary candidate-scheduling changes (availability OFF, standby/cooldown onset, location change - distance refreshes only); it closes only on withdraw/unaccept/cancel/expire/fulfill, account deactivation, verification invalidation, or an incompatible blood-type change.
+- The Home feed (`GET /api/requests/feed`, `RequestFeedService`) ranks *requests for a viewer* - tier → urgency → needed datetime → distance - and is distinct from `MatchService`, which ranks *donors for a request*. Both share `BloodCompatibilityService`/`Geo`/`DonorEligibilityService` with no duplicated logic.
 
 ### 9.6 Donor Availability, Standby & Cooldowns (FR-09, FR-12, FR-13)
 
@@ -432,7 +432,7 @@ Availability statuses: `Available`, `Unavailable`, `Standby`, `Deactivated`.
 **Channels:**
 
 - **In-app notification center:** dedicated notification records with read/unread status and timestamps.
-- **Email:** separate channel for defined important events — critical matches, verification decisions, request/account-status changes.
+- **Email:** separate channel for defined important events - critical matches, verification decisions, request/account-status changes.
 
 **Critical-request outreach:** notify all currently eligible compatible donors within the defined outreach scope (cross-chapter included). No arbitrary small recipient cap; dedup + rate-limiting prevent duplicates from repeated events/runs. Critical notifications may send immediately, including off-hours, respecting user settings and platform delivery limits. Outreach stops when the request is FULFILLED, CANCELLED, or EXPIRED.
 
@@ -444,7 +444,7 @@ Hidden unless explicitly disclosed by the donor: exact address, coordinates, pho
 
 - After a response, communication stays in-system; direct contact details remain hidden unless the donor chooses to disclose them.
 - Communication remains in-system by default. Direct email exchange is permitted only for an ACCEPTED match when both parties have explicitly consented, both accounts remain active, the request remains OPEN, and access is authorized and audited. Contact access is revoked when consent is withdrawn or the match/request reaches a terminal state.
-- Donor discovery is **request-scoped only** — there is no freely browsable member/donor directory, and members cannot obtain others' blood types, contacts, exact locations, or profiles.
+- Donor discovery is **request-scoped only** - there is no freely browsable member/donor directory, and members cannot obtain others' blood types, contacts, exact locations, or profiles.
 - Officers/Administrators get broader access only to the extent necessary for authorized duties.
 
 ### 9.9 Regional Blood Demand Map (FR-15)
@@ -458,7 +458,7 @@ Hidden unless explicitly disclosed by the donor: exact address, coordinates, pho
 
 Append-only audit log. Mandatory events include: registration; login success/failure; logout; password-reset events; verification decisions; request creation/edit/cancellation/fulfillment/expiration; donation reports & confirmations; availability/standby/cooldown/reactivation changes; role or chapter changes; administrative overrides; cross-chapter authorizations; other significant security/system actions.
 
-Record contents: timestamp, actor/account reference, action, target record (where applicable), relevant context — without unnecessarily storing sensitive document contents.
+Record contents: timestamp, actor/account reference, action, target record (where applicable), relevant context - without unnecessarily storing sensitive document contents.
 
 Viewership tiers: System Administrator = full log; Chapter Officer = chapter-relevant subset; members = none.
 
@@ -500,7 +500,7 @@ Officers see full requestor identity within their own chapter when necessary for
 
 - User Profile Location (`users.location_id`): approximate administrative location for donor proximity ranking, distance calculation, and donor-location reconciliation. Set via `LocationSelector.jsx` → `PUT /api/profile`.
 - Blood Request Location (`blood_requests.location_id`): facility location where blood is needed, set via selector → `POST /api/requests` / `PUT /api/requests/{id}`; optional (null keeps proximity skipped for that request); location edit is material (coords re-resolved, `request.material_change`, regeneration).
-- Chapter Canonical Centroid (`chapters.latitude/longitude`): chapter-level reference for Demand Map aggregation only — never a donor/request location, never individual pins/identities.
+- Chapter Canonical Centroid (`chapters.latitude/longitude`): chapter-level reference for Demand Map aggregation only - never a donor/request location, never individual pins/identities.
 
 ---
 
@@ -508,65 +508,65 @@ Officers see full requestor identity within their own chapter when necessary for
 
 > **Specification ≠ implementation.** A feature described anywhere in this document is NOT implemented until its code has been inspected and verified in this repository. Statuses may only advance to ⚠️/✅ after inspecting committed application code.
 
-### 10.0 Repository Audit (2026-08-26 — Historical baseline)
+### 10.0 Repository Audit (2026-08-26 - Historical baseline)
 
 > Historical record: describes the working tree on 2026-08-26. Preserved unchanged for audit trail. For the current system (migrations 001–016, 12/12 suites green, 343 assertions), see §10.3 Post-Phase-17 additions and `docs/test-log-location.md`.
 
 Full working-tree inspection found (on 2026-08-26):
 
-- Files present: `AGENTS.md`, `CONTEXT.md`, `skills-lock.json`, agent skills under `.agents/` — **nothing else**
+- Files present: `AGENTS.md`, `CONTEXT.md`, `skills-lock.json`, agent skills under `.agents/` - **nothing else**
 - Branch `main` has **zero commits** (`git log`: "current branch 'main' does not have any commits yet")
 - Glob for `*.php`, `*.js`, `*.jsx`, `*.sql`, `*.html`, `*.json` (excluding skills config): **no application source files**
 - No database schema, migrations, dumps, endpoints, or React components exist in this repository
 
 **Consequence:** every feature below is classified ❌ Not Implemented. Earlier drafts of this file carried "existing/implemented" claims inherited from the original project narrative; those claims are **withdrawn** until corresponding code exists and is verified here.
 
-**Shared evidence for all rows:** no files/components/endpoints/database tables exist to cite — see Repository Audit above.
+**Shared evidence for all rows:** no files/components/endpoints/database tables exist to cite - see Repository Audit above.
 
 ### 10.1 Requested Verification Results
 
 | Feature | Status | Supporting files/components/endpoints/tables |
 |---|---|---|
-| FR-12 — 42-hour post-donation standby (§9.6) | ✅ IMPLEMENTED AND VERIFIED 2026-08-26 (`DonorEligibilityService` windows + `MatchService` pool guard; evidence `docs/test-log-phase9.md`) |
+| FR-12 - 42-hour post-donation standby (§9.6) | ✅ IMPLEMENTED AND VERIFIED 2026-08-26 (`DonorEligibilityService` windows + `MatchService` pool guard; evidence `docs/test-log-phase9.md`) |
 | Separate ~3-month inter-donation cooldown (§9.6) | ✅ IMPLEMENTED AND VERIFIED 2026-08-26 (same settings-driven mechanism; evidence `docs/test-log-phase9.md`) |
-| FR-16 — In-app notifications (§9.7) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (migration 013 `notifications` table, `UNIQUE(dedup_key, generation)` deduplication, `NotificationService`, `NotificationRepository`, `NotificationsController`, mark-read, live unread count, type/read filters, React `NotificationsPage` & header bell badge; evidence `docs/test-log-phase10.md`) |
-| FR-17 — Email notifications (§9.7) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`Mailer.php` wrapping PHPMailer with env SMTP config, 5/user/hr rate limiting, critical urgency bypass, synchronous best-effort delivery; evidence `docs/test-log-phase10.md`) |
-| FR-15 — Regional Blood Demand Map (§9.9) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`DemandMapController`, `GET /api/demand-map`, chapter centroid aggregation of active OPEN requests, ABO/Rh and urgency breakdowns, zero individual pins/coordinates, officer scoping & admin global, React `DemandMapPage`; evidence `docs/test-log-phase12.md`) |
-| FR-18 — Audit logging (§9.10) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (32/32 mandatory events audited across P3–P10; append-only triggers active; `AuditLogRepository` with resource-target chapter scoping & context sanitization; admin viewer `/admin/audit-logs` & scoped officer viewer `/officer/audit-logs`; evidence `docs/test-log-phase11.md`) |
-| FR-19 — Analytics/reporting (§9.11) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`AnalyticsRepository`, `GET /api/analytics/summary`, single-pass DB aggregation of request volume, resolution rates excluding open, blood type demand, urgency demand, daily trends, live donor eligibility breakdown, verification/donation activity, React `AnalyticsPage`; evidence `docs/test-log-phase12.md`) |
-| FR-20 — Officer monitoring dashboard (§9.12) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`OfficerDashboardController`, `GET /api/officer/dashboard`, scoped to officer chapter, pending verifications queue, pending donation reports queue, active open requests, donor pool summary, blood type demand, recent chapter activity, `AdminDashboardController` system-wide overview, React `OfficerDashboardPage` & `AdminDashboardPage`; evidence `docs/test-log-phase12.md`) |
+| FR-16 - In-app notifications (§9.7) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (migration 013 `notifications` table, `UNIQUE(dedup_key, generation)` deduplication, `NotificationService`, `NotificationRepository`, `NotificationsController`, mark-read, live unread count, type/read filters, React `NotificationsPage` & header bell badge; evidence `docs/test-log-phase10.md`) |
+| FR-17 - Email notifications (§9.7) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`Mailer.php` wrapping PHPMailer with env SMTP config, 5/user/hr rate limiting, critical urgency bypass, synchronous best-effort delivery; evidence `docs/test-log-phase10.md`) |
+| FR-15 - Regional Blood Demand Map (§9.9) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`DemandMapController`, `GET /api/demand-map`, chapter centroid aggregation of active OPEN requests, ABO/Rh and urgency breakdowns, zero individual pins/coordinates, officer scoping & admin global, React `DemandMapPage`; evidence `docs/test-log-phase12.md`) |
+| FR-18 - Audit logging (§9.10) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (32/32 mandatory events audited across P3–P10; append-only triggers active; `AuditLogRepository` with resource-target chapter scoping & context sanitization; admin viewer `/admin/audit-logs` & scoped officer viewer `/officer/audit-logs`; evidence `docs/test-log-phase11.md`) |
+| FR-19 - Analytics/reporting (§9.11) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`AnalyticsRepository`, `GET /api/analytics/summary`, single-pass DB aggregation of request volume, resolution rates excluding open, blood type demand, urgency demand, daily trends, live donor eligibility breakdown, verification/donation activity, React `AnalyticsPage`; evidence `docs/test-log-phase12.md`) |
+| FR-20 - Officer monitoring dashboard (§9.12) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`OfficerDashboardController`, `GET /api/officer/dashboard`, scoped to officer chapter, pending verifications queue, pending donation reports queue, active open requests, donor pool summary, blood type demand, recent chapter activity, `AdminDashboardController` system-wide overview, React `OfficerDashboardPage` & `AdminDashboardPage`; evidence `docs/test-log-phase12.md`) |
 
 ### 10.2 Full Feature Status
 
 | Feature / Requirement | Status |
 |---|---|
-| Phase 2 foundational schema (chapters, users, password_resets, audit_log) — ✅ IMPLEMENTED AND VERIFIED 2026-08-26 (migrations 001–004 on blank DB; FK/CHECK/append-only triggers tested; see docs/erd.md). Table/column existence only — no behavior implemented | ✅ IMPLEMENTED AND VERIFIED (schema only) |
-| FR-01 User Registration — verified 2026-08-26 (`AuthService::register`, `POST /api/register`; creates `verification_status='pending'`, `account_status='active'`; evidence `docs/test-log-phase3.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-02 Login/Logout — verified 2026-08-26 (`AuthService::login/logout`, session regeneration, `auth_throttle` lockout; evidence `docs/test-log-phase3.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| Password reset flow (§8.6) — verified 2026-08-26 / email wired 2026-08-27 (hashed single-use ~30-min tokens, reuse/expiry rejected, token delivered via best-effort email; evidence `docs/test-log-phase3.md`, `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-04 Profile management — verified 2026-08-26, extended 2026-09-24 (`ProfileController` GET/PUT whitelist; forbidden-field rejection; `location_id` Bataan selector with backend-resolved coordinates, raw `latitude`/`longitude` rejected; blood-provenance rules; `matches_refreshed` on location change; evidence `docs/test-log-phase5.md`, `docs/test-log-location.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-10 Officer verification — verified 2026-08-26 (own-chapter queue, pending→verified/rejected, donor-card provenance with non-medical disclaimer, audit trail; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-11 Verification restrictions — verified 2026-08-26 (self/officer/admin-target and cross-chapter blocks all enforced+audited; capability-matrix helper live; request/donor gating cells deferred to P6/P7 endpoints; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| Cascading match engine / centralized compatibility matrix (FR-06) — verified 2026-08-26 (`BloodCompatibilityService` sole authority, 8-type red-cell matrix table+seed, hard-filter pool, centralized `MatchService`, unique persistent (request,donor) rows, generation semantics, auto-generation on create/material-change, manual re-match authz, privacy-safe serializer, explicit donor-enrollment requirement; evidence `docs/test-log-phase7.md`). Notification/response/completion states deferred to P8/P10 | ✅ IMPLEMENTED AND VERIFIED |
-| Proximity/location sorting (FR-07/FR-08) — verified 2026-08-26 (Haversine distances, chapter preference not filter, unlocated donors ranked last, proximity never overrides compatibility invariant-tested; evidence `docs/test-log-phase7.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| Blood request lifecycle (FR-05/FR-14) — verified 2026-08-26 (`RequestsController`, capability-gated creation incl. pending-user `pending_review` provenance, OPEN/FULFILLED/CANCELLED/EXPIRED lifecycle, material-change auditing, chapter-scoped access/cancel, idempotent expiry CLI; evidence `docs/test-log-phase6.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| Donor availability / reactivation (FR-09/FR-13) — verified 2026-08-26 (availability toggle through DonorEligibilityService extension point; respond flow w/ parallel engagement; donation_reports + transactional officer confirmation setting last_verified_donation_at + match COMPLETED; quantity-threshold FULFILLED rule; evidence `docs/test-log-phase8.md`) | ✅ IMPLEMENTED AND VERIFIED (P8 scope) |
-| FR-12 42-hour standby + inter-donation cooldown — verified 2026-08-26 (system_settings-driven windows anchored to last_verified_donation_at; standby written only by confirmation tx; read-model matching enforcement; non-bypassable availability guards; clock-injectable tests incl. boundary + configurability; evidence `docs/test-log-phase9.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| RBAC, backend-enforced (FR-03) — verified 2026-08-26: role gates + chapter scoping + fresh account-status checks on privileged endpoints; admin user/role/chapter/deactivate endpoints; denial+action auditing (`authz.denied`, `admin.user.*`); evidence `docs/test-log-phase4.md`. Officer verification decisions remain P5 | ✅ IMPLEMENTED AND VERIFIED (Phase 4 scope) |
-| Soft-deactivation — verified 2026-08-26 (P4 admin deactivate/reactivate endpoints w/ CHECK-paired `deactivated_at`, immediate live-session denial, verification_status untouched; audited) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-16 In-App Notifications — verified 2026-08-27, UI extended post-17 (migration 013 `notifications` table, `UNIQUE(dedup_key, generation)` deduplication, event wiring for matches/verification/account/request/donation/expiry, live unread counter `GET /api/notifications/unread-count`, type/read filters, React `NotificationsPage` retained as View-all + in-navbar `NotificationFlyout` as current primary UI; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-17 Email Alerts — verified 2026-08-27 (synchronous best-effort SMTP delivery via PHPMailer, 5/hr rate limiting with critical urgency bypass, graceful degradation when unconfigured; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-18 Audit Logging — verified 2026-08-27 (32/32 mandatory events verified; append-only DB triggers active; `AuditLogRepository`, `AuditLogAdminController`, `AuditLogOfficerController`, scoped viewer pages; evidence `docs/test-log-phase11.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-15 Regional Blood Demand Map — verified 2026-08-27 (`DemandMapController`, `GET /api/demand-map`, chapter centroid aggregation, privacy-safe, officer-scoped & admin global; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-19 Analytics & Reporting — verified 2026-08-27 (`AnalyticsRepository`, `GET /api/analytics/summary`, DB aggregations, resolution rates, donor pool availability, React AnalyticsPage; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-20 Officer & Admin Dashboards — verified 2026-08-27 (`OfficerDashboardController`, `AdminDashboardController`, operational queues, cross-chapter comparison, React dashboards; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| Profile pictures (migration 015) — verified 2026-09 (nullable `users.profile_picture` 64-hex ref in `backend/storage/profile_pictures`; `POST /api/profile/picture` upload JPG/PNG/WEBP ≤5 MB with replacement + rate limit, `GET /api/profile/picture` owner-only stream; navbar `NavbarAvatar` with fallback icon; `profile_picture_url` on login/me/profile; `profile.picture_updated` audited; evidence `tests/profile_picture.ps1` P01–P13) | ✅ IMPLEMENTED AND VERIFIED |
-| Bataan location reference (migration 016 + seed 004) — verified 2026-09-24 (`bataan_locations` 12 municipalities + 237 barangays PSGC 030800000; `users.location_id` / `blood_requests.location_id` FKs; `LocationService` backend resolution; `LocationSelector.jsx` cascade; `GET /api/locations/municipalities`, `GET /api/locations/barangays`; raw coordinates rejected; selector APIs expose no coordinates; evidence `docs/test-log-location.md` L01–L16, `tests/location.ps1` 20/20) | ✅ IMPLEMENTED AND VERIFIED |
-| Donor-location refresh — verified 2026-09-24, rescoped 2026-10-01 (`MatchService::refreshMatchesForDonor()` on profile location change; donor-scoped distance + own-rank recompute via shared `rankScore`, no generation bump, no unrelated regeneration/resurrection/notifications; COMPLETED/CLOSED/WITHDRAWN untouched; `matches_refreshed` returned; evidence `docs/test-log-location.md` L17–L20, `docs/test-log-remediation.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| Privacy notices — verified (registration Privacy Notice mandatory `privacy_acknowledged` frontend + backend `AuthService::isPrivacyAcknowledged`, `POST /api/register` 400 + field error when missing/false; ID-upload Privacy Notice mandatory on `POST /api/profile/documents` via `DocumentController`; `PrivacyNoticeModal.jsx`, `RegisterPage.jsx`, `ProfilePage.jsx`; evidence `tests/phase3.ps1` T05b–T05d, `tests/phase5.ps1` B1b–B1c) | ✅ IMPLEMENTED AND VERIFIED |
-| Authenticated Home / Blood Request Feed (migration 017) — verified on implementation date (`GET /api/requests/feed` capability-gated OPEN-only member-safe ranking tier → urgency → needed → distance with deterministic tiebreak, filters blood/urgency/chapter/near-you, offset pagination; `FeedPage.jsx` `/feed` + Home routing + login redirect; evidence `docs/test-log-feed.md`, `tests/feed.ps1` F1–F15) | ✅ IMPLEMENTED AND VERIFIED |
-| Match lifecycle ACCEPTED/WITHDRAWN + bilateral contact (migration 017) — verified on implementation date (`MatchDecisionService` respond reconciliation/accept/unaccept/withdraw/consent/contact; request-scoped Respond; capacity invariant under row locks; quantity guard; terminal sweeps incl. ACCEPTED; deactivation/verification/blood-type targeted cleanup; `match.closed` + lifecycle notifications; contact gated on ACCEPTED/COMPLETED + OPEN + both active + both consents; evidence `docs/test-log-feed.md`, `tests/feed.ps1` F16–F26, extended F27–F34) | ✅ IMPLEMENTED AND VERIFIED |
-| Remediation hardening (migration 018) — verified 2026-10-01 (confirm rejects non-`RESPONDED`/`ACCEPTED` with no side effects; capacity enforced on accept + confirm under request→match→report locks; accept re-validates live eligibility; safety-subset re-validation at confirm; atomic single-PENDING reports; atomic reset consumption + identical known/unknown throttle; DOB change re-evaluates enrollment; owner-only request coordinates; fail-closed critical audit with FK-race retry; `NOT NULL` notification dedup; critical per-request email throttle; fulfillment notices; deterministic ordered expiry with per-request claim; donor-scoped location refresh with shared `rankScore`; server pagination for my-requests/matches; login CSRF rotation + 12h idle timeout + `session_version` revocation; last-admin guard; evidence `docs/test-log-remediation.md`, `tests/remediation.ps1` R01–R24) | ✅ IMPLEMENTED AND VERIFIED |
+| Phase 2 foundational schema (chapters, users, password_resets, audit_log) - ✅ IMPLEMENTED AND VERIFIED 2026-08-26 (migrations 001–004 on blank DB; FK/CHECK/append-only triggers tested; see docs/erd.md). Table/column existence only - no behavior implemented | ✅ IMPLEMENTED AND VERIFIED (schema only) |
+| FR-01 User Registration - verified 2026-08-26 (`AuthService::register`, `POST /api/register`; creates `verification_status='pending'`, `account_status='active'`; evidence `docs/test-log-phase3.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-02 Login/Logout - verified 2026-08-26 (`AuthService::login/logout`, session regeneration, `auth_throttle` lockout; evidence `docs/test-log-phase3.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| Password reset flow (§8.6) - verified 2026-08-26 / email wired 2026-08-27 (hashed single-use ~30-min tokens, reuse/expiry rejected, token delivered via best-effort email; evidence `docs/test-log-phase3.md`, `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-04 Profile management - verified 2026-08-26, extended 2026-09-24 (`ProfileController` GET/PUT whitelist; forbidden-field rejection; `location_id` Bataan selector with backend-resolved coordinates, raw `latitude`/`longitude` rejected; blood-provenance rules; `matches_refreshed` on location change; evidence `docs/test-log-phase5.md`, `docs/test-log-location.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-10 Officer verification - verified 2026-08-26 (own-chapter queue, pending→verified/rejected, donor-card provenance with non-medical disclaimer, audit trail; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-11 Verification restrictions - verified 2026-08-26 (self/officer/admin-target and cross-chapter blocks all enforced+audited; capability-matrix helper live; request/donor gating cells deferred to P6/P7 endpoints; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| Cascading match engine / centralized compatibility matrix (FR-06) - verified 2026-08-26 (`BloodCompatibilityService` sole authority, 8-type red-cell matrix table+seed, hard-filter pool, centralized `MatchService`, unique persistent (request,donor) rows, generation semantics, auto-generation on create/material-change, manual re-match authz, privacy-safe serializer, explicit donor-enrollment requirement; evidence `docs/test-log-phase7.md`). Notification/response/completion states deferred to P8/P10 | ✅ IMPLEMENTED AND VERIFIED |
+| Proximity/location sorting (FR-07/FR-08) - verified 2026-08-26 (Haversine distances, chapter preference not filter, unlocated donors ranked last, proximity never overrides compatibility invariant-tested; evidence `docs/test-log-phase7.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| Blood request lifecycle (FR-05/FR-14) - verified 2026-08-26 (`RequestsController`, capability-gated creation incl. pending-user `pending_review` provenance, OPEN/FULFILLED/CANCELLED/EXPIRED lifecycle, material-change auditing, chapter-scoped access/cancel, idempotent expiry CLI; evidence `docs/test-log-phase6.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| Donor availability / reactivation (FR-09/FR-13) - verified 2026-08-26 (availability toggle through DonorEligibilityService extension point; respond flow w/ parallel engagement; donation_reports + transactional officer confirmation setting last_verified_donation_at + match COMPLETED; quantity-threshold FULFILLED rule; evidence `docs/test-log-phase8.md`) | ✅ IMPLEMENTED AND VERIFIED (P8 scope) |
+| FR-12 42-hour standby + inter-donation cooldown - verified 2026-08-26 (system_settings-driven windows anchored to last_verified_donation_at; standby written only by confirmation tx; read-model matching enforcement; non-bypassable availability guards; clock-injectable tests incl. boundary + configurability; evidence `docs/test-log-phase9.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| RBAC, backend-enforced (FR-03) - verified 2026-08-26: role gates + chapter scoping + fresh account-status checks on privileged endpoints; admin user/role/chapter/deactivate endpoints; denial+action auditing (`authz.denied`, `admin.user.*`); evidence `docs/test-log-phase4.md`. Officer verification decisions remain P5 | ✅ IMPLEMENTED AND VERIFIED (Phase 4 scope) |
+| Soft-deactivation - verified 2026-08-26 (P4 admin deactivate/reactivate endpoints w/ CHECK-paired `deactivated_at`, immediate live-session denial, verification_status untouched; audited) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-16 In-App Notifications - verified 2026-08-27, UI extended post-17 (migration 013 `notifications` table, `UNIQUE(dedup_key, generation)` deduplication, event wiring for matches/verification/account/request/donation/expiry, live unread counter `GET /api/notifications/unread-count`, type/read filters, React `NotificationsPage` retained as View-all + in-navbar `NotificationFlyout` as current primary UI; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-17 Email Alerts - verified 2026-08-27 (synchronous best-effort SMTP delivery via PHPMailer, 5/hr rate limiting with critical urgency bypass, graceful degradation when unconfigured; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-18 Audit Logging - verified 2026-08-27 (32/32 mandatory events verified; append-only DB triggers active; `AuditLogRepository`, `AuditLogAdminController`, `AuditLogOfficerController`, scoped viewer pages; evidence `docs/test-log-phase11.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-15 Regional Blood Demand Map - verified 2026-08-27 (`DemandMapController`, `GET /api/demand-map`, chapter centroid aggregation, privacy-safe, officer-scoped & admin global; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-19 Analytics & Reporting - verified 2026-08-27 (`AnalyticsRepository`, `GET /api/analytics/summary`, DB aggregations, resolution rates, donor pool availability, React AnalyticsPage; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-20 Officer & Admin Dashboards - verified 2026-08-27 (`OfficerDashboardController`, `AdminDashboardController`, operational queues, cross-chapter comparison, React dashboards; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| Profile pictures (migration 015) - verified 2026-09 (nullable `users.profile_picture` 64-hex ref in `backend/storage/profile_pictures`; `POST /api/profile/picture` upload JPG/PNG/WEBP ≤5 MB with replacement + rate limit, `GET /api/profile/picture` owner-only stream; navbar `NavbarAvatar` with fallback icon; `profile_picture_url` on login/me/profile; `profile.picture_updated` audited; evidence `tests/profile_picture.ps1` P01–P13) | ✅ IMPLEMENTED AND VERIFIED |
+| Bataan location reference (migration 016 + seed 004) - verified 2026-09-24 (`bataan_locations` 12 municipalities + 237 barangays PSGC 030800000; `users.location_id` / `blood_requests.location_id` FKs; `LocationService` backend resolution; `LocationSelector.jsx` cascade; `GET /api/locations/municipalities`, `GET /api/locations/barangays`; raw coordinates rejected; selector APIs expose no coordinates; evidence `docs/test-log-location.md` L01–L16, `tests/location.ps1` 20/20) | ✅ IMPLEMENTED AND VERIFIED |
+| Donor-location refresh - verified 2026-09-24, rescoped 2026-10-01 (`MatchService::refreshMatchesForDonor()` on profile location change; donor-scoped distance + own-rank recompute via shared `rankScore`, no generation bump, no unrelated regeneration/resurrection/notifications; COMPLETED/CLOSED/WITHDRAWN untouched; `matches_refreshed` returned; evidence `docs/test-log-location.md` L17–L20, `docs/test-log-remediation.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| Privacy notices - verified (registration Privacy Notice mandatory `privacy_acknowledged` frontend + backend `AuthService::isPrivacyAcknowledged`, `POST /api/register` 400 + field error when missing/false; ID-upload Privacy Notice mandatory on `POST /api/profile/documents` via `DocumentController`; `PrivacyNoticeModal.jsx`, `RegisterPage.jsx`, `ProfilePage.jsx`; evidence `tests/phase3.ps1` T05b–T05d, `tests/phase5.ps1` B1b–B1c) | ✅ IMPLEMENTED AND VERIFIED |
+| Authenticated Home / Blood Request Feed (migration 017) - verified on implementation date (`GET /api/requests/feed` capability-gated OPEN-only member-safe ranking tier → urgency → needed → distance with deterministic tiebreak, filters blood/urgency/chapter/near-you, offset pagination; `FeedPage.jsx` `/feed` + Home routing + login redirect; evidence `docs/test-log-feed.md`, `tests/feed.ps1` F1–F15) | ✅ IMPLEMENTED AND VERIFIED |
+| Match lifecycle ACCEPTED/WITHDRAWN + bilateral contact (migration 017) - verified on implementation date (`MatchDecisionService` respond reconciliation/accept/unaccept/withdraw/consent/contact; request-scoped Respond; capacity invariant under row locks; quantity guard; terminal sweeps incl. ACCEPTED; deactivation/verification/blood-type targeted cleanup; `match.closed` + lifecycle notifications; contact gated on ACCEPTED/COMPLETED + OPEN + both active + both consents; evidence `docs/test-log-feed.md`, `tests/feed.ps1` F16–F26, extended F27–F34) | ✅ IMPLEMENTED AND VERIFIED |
+| Remediation hardening (migration 018) - verified 2026-10-01 (confirm rejects non-`RESPONDED`/`ACCEPTED` with no side effects; capacity enforced on accept + confirm under request→match→report locks; accept re-validates live eligibility; safety-subset re-validation at confirm; atomic single-PENDING reports; atomic reset consumption + identical known/unknown throttle; DOB change re-evaluates enrollment; owner-only request coordinates; fail-closed critical audit with FK-race retry; `NOT NULL` notification dedup; critical per-request email throttle; fulfillment notices; deterministic ordered expiry with per-request claim; donor-scoped location refresh with shared `rankScore`; server pagination for my-requests/matches; login CSRF rotation + 12h idle timeout + `session_version` revocation; last-admin guard; evidence `docs/test-log-remediation.md`, `tests/remediation.ps1` R01–R24) | ✅ IMPLEMENTED AND VERIFIED |
 
 > Maintain these rows only after verifying actual files/endpoints/tables, and record the supporting evidence alongside each status. Historical Phase-17 baseline (11/11, 316/316 on 2026-08-27) is preserved in `docs/test-log-phase17.md`; location baseline (12/12, 343 assertions on 2026-09-24) is in `docs/test-log-location.md`; feed baseline (13/13, 384 assertions) is in `docs/test-log-feed.md`; current baseline (15/15, 431 assertions) is in `docs/test-log-remediation.md` and `tests/run_all.ps1`.
 
@@ -589,6 +589,6 @@ Full working-tree inspection found (on 2026-08-26):
 2. **Do not remove or reinterpret** functional and non-functional requirements.
 3. **Distinguish implemented vs. planned features.** If existing code shows a feature isn't implemented, say so.
 4. **Inspect the existing project** before making claims about what is already implemented.
-5. **Enforce authorization on the backend.** Never rely solely on hiding buttons in React — a user must not reach an admin endpoint by manually entering its URL. Backend routes must verify: authentication, session, role, verification status (where required), and authorization.
-6. **Keep compatibility/matching logic centralized on the backend** — never duplicated in frontend components, page scripts, or SQL queries.
-7. **Preserve historical data** — prefer soft-deactivation over deletion.
+5. **Enforce authorization on the backend.** Never rely solely on hiding buttons in React - a user must not reach an admin endpoint by manually entering its URL. Backend routes must verify: authentication, session, role, verification status (where required), and authorization.
+6. **Keep compatibility/matching logic centralized on the backend** - never duplicated in frontend components, page scripts, or SQL queries.
+7. **Preserve historical data** - prefer soft-deactivation over deletion.

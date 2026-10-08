@@ -72,7 +72,7 @@ export default function NotificationsPage() {
     <div className="container">
       <header className="app-header">
         <div>
-          <h1>Notifications</h1>
+          <h1 className="sr-only">Notifications</h1>
         </div>
         <button type="button" className="btn btn-secondary" onClick={markAll} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
           <Check size={14} weight="regular" aria-hidden="true" /> Mark All as Read

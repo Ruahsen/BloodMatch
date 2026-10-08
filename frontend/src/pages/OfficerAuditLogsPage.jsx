@@ -68,7 +68,7 @@ export default function OfficerAuditLogsPage() {
       <header className="app-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-            <h1 style={{ margin: 0 }}>Chapter Audit Trail</h1>
+            <h1 className="sr-only">Chapter Audit Trail</h1>
             <span className="badge badge-open">Chapter #{user?.chapter_id || '–'}</span>
           </div>
         </div>

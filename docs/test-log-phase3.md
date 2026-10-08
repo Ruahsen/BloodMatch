@@ -1,4 +1,4 @@
-# Phase 3 Verification Log — Authentication & Registration
+# Phase 3 Verification Log - Authentication & Registration
 
 > Historical record (2026-08-26, 23 assertions). Preserved as-run. Superseded for current totals by `docs/test-log-location.md` (2026-09-24: Phase 3 now 26 assertions incl. mandatory `privacy_acknowledged` gates T05b–T05d; master 12/12, 343). Do not read 23/23 as the current baseline.
 
@@ -20,7 +20,7 @@ Environment: PHP 8.2.12 dev server (127.0.0.1:8000) → MariaDB 10.4 @ 127.0.0.1
 ## Security checks
 
 - Passwords bcrypt-hashed; old password rejected after reset
-- Plaintext tokens never stored/logged — DB contains only 64-hex hashes (T23)
+- Plaintext tokens never stored/logged - DB contains only 64-hex hashes (T23)
 - Session ID regenerated on login
 - Audit trail written for: `user.registered`, `auth.login.success`, `auth.login.failed`, `auth.logout`, `auth.password_reset.requested`, `auth.password_reset.completed`, `auth.login.blocked_deactivated` (6+ distinct actions in append-only `audit_log`)
 
@@ -34,6 +34,6 @@ Environment: PHP 8.2.12 dev server (127.0.0.1:8000) → MariaDB 10.4 @ 127.0.0.1
 
 ## Known gaps / deferred
 
-- **Reset-token email delivery NOT implemented** — no mail transport configured in XAMPP dev; flow verified via direct DB token injection. Delivery channel is the only missing piece of §8.6 behavior.
-- **Donor-endpoint authorization gating not executable yet** — no donor-only endpoints exist in Phase 3 by design; full capability-matrix enforcement deferred to Phase 5 (per plan). Sanity check limited to: pending user authenticates and passes `/api/auth/me`.
+- **Reset-token email delivery NOT implemented** - no mail transport configured in XAMPP dev; flow verified via direct DB token injection. Delivery channel is the only missing piece of §8.6 behavior.
+- **Donor-endpoint authorization gating not executable yet** - no donor-only endpoints exist in Phase 3 by design; full capability-matrix enforcement deferred to Phase 5 (per plan). Sanity check limited to: pending user authenticates and passes `/api/auth/me`.
 - Registration endpoint itself is not rate-limited (login/reset are); revisit in Phase 16 hardening.

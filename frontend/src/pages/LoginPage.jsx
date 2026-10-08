@@ -10,11 +10,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [notice] = useState(
-    location.state?.emailVerified
-      ? 'Email verified. Registration complete — please sign in to continue.'
-      : location.state?.registered
-        ? 'Account created successfully. Please sign in.'
-        : null
+    location.state?.registered
+      ? 'Account created successfully. Please sign in.'
+      : null
   )
   const [submitting, setSubmitting] = useState(false)
 
@@ -27,7 +25,7 @@ export default function LoginPage() {
       navigate('/feed')
     } catch (err) {
       // Backend-enforced email gate: correct credentials but unverified
-      // address. The 403 carries a fresh single-purpose claim token —
+      // address. The 403 carries a fresh single-purpose claim token -
       // keep it (tab-scoped, never in a URL) and route to verification.
       if (err.status === 403 && err.details?.code === 'email_verification_required') {
         if (err.details.verification_token) {

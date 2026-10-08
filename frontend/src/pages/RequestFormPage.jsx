@@ -91,7 +91,7 @@ export default function RequestFormPage() {
   return (
     <div className="container narrow">
       <div style={{ marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ marginBottom: 'var(--space-2)' }}>
+        <h1 className="sr-only">
           {editing ? `Edit Blood Request #${id}` : 'Create Blood Request'}
         </h1>
       </div>
@@ -169,11 +169,6 @@ export default function RequestFormPage() {
 
           <div className="field" role="group" aria-labelledby="request-location-heading">
             <span id="request-location-heading" className="metric-label" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>Facility Location</span>
-            <small className="field-hint" style={{ display: 'block', marginBottom: 'var(--space-3)' }}>
-              Select the municipality or city of the facility and optionally its barangay. This helps
-              BloodMatch prioritize compatible donors who are closer to where the blood is needed.
-              BloodMatch uses an approximate geographic reference for proximity ranking.
-            </small>
             <LocationSelector
               municipalityId="request-municipality"
               municipalityCode={location.municipality_code}
@@ -182,7 +177,6 @@ export default function RequestFormPage() {
               errors={errors}
               required={false}
             />
-            <small className="field-hint">Exact coordinates are never shown to members; only approximate distances are displayed.</small>
           </div>
 
           <div className="button-group" style={{ marginTop: 'var(--space-3)' }}>

@@ -18,7 +18,7 @@ final class Mailer
     /**
      * Best-effort send. Returns true only when the message was accepted for
      * delivery (SMTP) or captured to disk (local testing). Any failure is
-     * logged and returns false — callers must never let an email failure
+     * logged and returns false - callers must never let an email failure
      * break the business transaction.
      */
     public static function send(string $toEmail, string $subject, string $htmlBody, ?string $textBody = null): bool

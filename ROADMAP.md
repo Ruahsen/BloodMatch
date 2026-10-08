@@ -1,4 +1,4 @@
-# BloodMatch — Master Implementation Roadmap
+# BloodMatch - Master Implementation Roadmap
 
 > Derived from [CONTEXT.md](./CONTEXT.md) (requirements source of truth, incl. §9 Finalized Business Rules and §10 Verified Implementation Status) and [AGENTS.md](./AGENTS.md) (development rules).
 > Original plan preserved below; completed phases retain their historical verification dates. Current state (post-Phase-17) is summarized in §0.1 and “Post-Phase-17 additions”.
@@ -20,15 +20,15 @@ Per the verified Repository Audits and Master Regression Suite (`tests/run_all.p
 
 | Requirements & Scope | State |
 |---|---|
-| FR-01 … FR-20 (all 20) | ✅ **100% IMPLEMENTED AND VERIFIED** — verified across Phases 1–12; evidence in `docs/test-log-phase*.md` |
-| Phase 15: Frontend & A11y Polish | ✅ **100% IMPLEMENTED AND VERIFIED** — verified in `docs/test-log-phase15.md` |
-| Phase 16: Security Hardening | ✅ **100% IMPLEMENTED AND VERIFIED** — verified in `docs/test-log-phase16.md` |
+| FR-01 … FR-20 (all 20) | ✅ **100% IMPLEMENTED AND VERIFIED** - verified across Phases 1–12; evidence in `docs/test-log-phase*.md` |
+| Phase 15: Frontend & A11y Polish | ✅ **100% IMPLEMENTED AND VERIFIED** - verified in `docs/test-log-phase15.md` |
+| Phase 16: Security Hardening | ✅ **100% IMPLEMENTED AND VERIFIED** - verified in `docs/test-log-phase16.md` |
 
 Requirement texts live in CONTEXT.md §9.1; ratified behavior rules in §9.2–§9.13.
 
 ### 0.2 Non-Functional Requirements NFR-01 → NFR-17
 
-⚠️ **NFR-01…NFR-17 are NOT DEFINED anywhere in this repository** (verified by full-text search of all `.md` files). They are treated as **Pending — Product Owner must supply definitions**. Per AGENTS.md rule #4, they are not invented here.
+⚠️ **NFR-01…NFR-17 are NOT DEFINED anywhere in this repository** (verified by full-text search of all `.md` files). They are treated as **Pending - Product Owner must supply definitions**. Per AGENTS.md rule #4, they are not invented here.
 
 Until supplied, each phase's security/performance/UX considerations are anchored to the **already-documented non-functional constraints**:
 
@@ -68,7 +68,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 1 — Project Foundation
+## PHASE 1 - Project Foundation
 
 1. **Objective:** Establish repo structure, tooling, environment config, and coding conventions so all later phases commit against a stable base.
 2. **Requirements covered:** AGENTS.md #7–9 (stack), #23 (conventions); enables all FRs.
@@ -80,20 +80,20 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
    - Single front controller (`index.php`) + minimal router for `/api/*` JSON endpoints.
 6. **Frontend work:** Scaffold React app (Vite or CRA-equivalent), base folder conventions, proxy config to PHP API.
 7. **Security considerations:** Secrets outside git (`.env` pattern + `.gitignore`); error display off in prod-style config; no secrets bundled into React build (AGENTS.md #16).
-8. **Tests required:** Smoke test — DB connects on port 3307; router returns JSON 404; React dev server builds.
+8. **Tests required:** Smoke test - DB connects on port 3307; router returns JSON 404; React dev server builds.
 9. **Definition of Done:** Fresh XAMPP checkout reaches "DB connected" via a health endpoint; repo README documents setup; empty commit history begins with foundation commit.
 
 **Internal order:** (1) folder skeleton + gitignore → (2) DB config/connection → (3) router/front controller → (4) React scaffold → (5) smoke tests → (6) README.
 
 ---
 
-## PHASE 2 — Database Architecture
+## PHASE 2 - Database Architecture
 
 1. **Objective:** Create the normalized schema for foundational entities plus the audit-log table (created early so later phases can write events immediately), with migrations/seeds as repeatable scripts.
 2. **Requirements covered:** Data model supporting FR-01–FR-20; soft-deletion rule (§8.3); chapters seed (§9.13).
 3. **Dependencies:** Phase 1.
 4. **Database work:**
-   - `chapters` (seeded: Mt. Samat/Orani, Mt. Tarak/Mariveles, Meridian Heights/Balanga City — §9.13).
+   - `chapters` (seeded: Mt. Samat/Orani, Mt. Tarak/Mariveles, Meridian Heights/Balanga City - §9.13).
     - `users`: identity fields, `role` enum(member/officer/admin), **separated status fields** (per Phase 2 design rule): `verification_status` enum(unverified/pending/verified/rejected) for the officer workflow AND `account_status` enum(active/deactivated) + `deactivated_at` for soft-deactivation; `chapter_id` FK, age/DOB, `blood_type`, `blood_type_source`, `blood_type_verified` (§9.2), `latitude`,`longitude` (§9.4), `donor_enrolled_at`, `donor_availability` enum(available/unavailable/standby), `last_verified_donation_at` reserved (used in P8/P9), timestamps.
    - `password_resets`: email, token hash, expires_at (~30 min), single-use marker (§8.6).
    - `audit_log` (append-only; no UPDATE/DELETE grants in app user): timestamp, actor_id, action, target_type/target_id, context JSON (§9.10).
@@ -108,14 +108,14 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 3 — Authentication & Registration
+## PHASE 3 - Authentication & Registration
 
 1. **Objective:** Implement FR-01 registration, FR-02 login/logout, and the specified password-reset flow with secure session handling.
 2. **Requirements covered:** FR-01, FR-02; password reset spec (CONTEXT.md §8.6); capability-matrix row "Registered" (§9.2).
 3. **Dependencies:** Phases 1–2.
 4. **Database work:** None beyond P2 (users, password_resets ready).
 5. **Backend/API work:**
-    - `POST /api/register` (FR-01 fields: personal, chapter select from `chapters`, blood-related info incl. `blood_type_source=Self Reported`), creating accounts with `verification_status='pending'`, `account_status='active'` per lifecycle (§9.2) — *note: lifecycle starts new members at Pending Verification; the matrix "Registered" state maps to `verification_status='unverified', account_status='active'` and applies to rows that have not completed a submission.*
+    - `POST /api/register` (FR-01 fields: personal, chapter select from `chapters`, blood-related info incl. `blood_type_source=Self Reported`), creating accounts with `verification_status='pending'`, `account_status='active'` per lifecycle (§9.2) - *note: lifecycle starts new members at Pending Verification; the matrix "Registered" state maps to `verification_status='unverified', account_status='active'` and applies to rows that have not completed a submission.*
    - `POST /api/login`, `POST /api/logout`; server-side sessions with regeneration on login.
    - `POST /api/password-reset/request|confirm`: store **hash** of single-use token, ~30-minute expiry (§8.6).
 6. **Frontend work:** Registration form (chapter dropdown sourced from API), login page, logout control, reset request/set pages.
@@ -127,18 +127,18 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 4 — RBAC & Chapter Scoping
+## PHASE 4 - RBAC & Chapter Scoping
 
 1. **Objective:** Enforce the 3-tier role model and officer chapter scoping on the backend, so every later endpoint inherits authorization.
-2. **Requirements covered:** FR-03 (RBAC), §9.2 separation of duties, §9.13 chapter assignment; capability matrix gating (partial — full enforcement lands in P5).
+2. **Requirements covered:** FR-03 (RBAC), §9.2 separation of duties, §9.13 chapter assignment; capability matrix gating (partial - full enforcement lands in P5).
 3. **Dependencies:** Phase 3 (sessions).
-4. **Database work:** Add `officer_assignments` representation (e.g., `users.chapter_id` + role check, or dedicated table if multiple historical assignments needed) — prefer minimal: role + chapter_id on users; SysAdmin manages assignments.
+4. **Database work:** Add `officer_assignments` representation (e.g., `users.chapter_id` + role check, or dedicated table if multiple historical assignments needed) - prefer minimal: role + chapter_id on users; SysAdmin manages assignments.
 5. **Backend/API work:**
    - Middleware chain: `requireAuth` → `requireRole(...)` → `requireChapterScope($targetChapterId)` → verification-status gate helper (consumed fully in P5).
    - Guard utilities returning 401 vs 403 correctly; central place to add audit hooks later.
    - Admin endpoints: manage officer role/chapter assignment (SysAdmin only).
-6. **Frontend work:** Role-aware routing shell; no privileged UI rendered without backend-confirmed role (UI hiding is cosmetic only — AGENTS.md #13).
-7. **Security considerations:** Every protected route passes middleware — deny by default; URL-guessing an admin path must fail 403; officers restricted to own chapter server-side (§9.2); log authorization failures to audit_log (event instrumentation starts here).
+6. **Frontend work:** Role-aware routing shell; no privileged UI rendered without backend-confirmed role (UI hiding is cosmetic only - AGENTS.md #13).
+7. **Security considerations:** Every protected route passes middleware - deny by default; URL-guessing an admin path must fail 403; officers restricted to own chapter server-side (§9.2); log authorization failures to audit_log (event instrumentation starts here).
 8. **Tests required:** Matrix test per role × endpoint class; cross-chapter access denial; unauthenticated access denial; direct URL entry to admin routes denied.
 9. **Definition of Done:** Authorization helper is the only code path to protected resources; test matrix green; audit_log records denials.
 
@@ -146,18 +146,18 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 5 — User Profiles & Verification
+## PHASE 5 - User Profiles & Verification
 
 1. **Objective:** Deliver FR-04 profile management plus the full officer verification workflow with separation of duties, age eligibility, and blood-type provenance display.
 2. **Requirements covered:** FR-04, FR-10, FR-11; §9.2 (lifecycle, capability matrix, evidence rules, age rule); donor-card supplementary-evidence policy.
 3. **Dependencies:** Phase 4 (roles/scoping).
 4. **Database work:**
-   - `member_documents` (type: national_id / donor_card / parental_consent; file ref; uploaded_at) — files stored outside webroot; DB stores safe references only.
+   - `member_documents` (type: national_id / donor_card / parental_consent; file ref; uploaded_at) - files stored outside webroot; DB stores safe references only.
    - `verification_decisions` (verification history: officer_id, decision approve/reject/re-review, reason, timestamp) for resubmission loop Rejected→Pending (§9.2).
    - Users: ensure DOB present (age gate), consent-document linkage for ages 16–17.
 5. **Backend/API work:**
    - `GET/PUT /api/profile` (FR-04: personal info, blood type + source, chapter, contact, availability toggle placeholder until P8 owns it).
-   - Officer queue endpoints: list pending by officer's chapter; decide approve/reject/re-review — enforcing: same-chapter only, never self/officer/SysAdmin, never own documents (§9.2); SysAdmin override + escalation endpoints.
+   - Officer queue endpoints: list pending by officer's chapter; decide approve/reject/re-review - enforcing: same-chapter only, never self/officer/SysAdmin, never own documents (§9.2); SysAdmin override + escalation endpoints.
    - Capability-matrix enforcement using P4 gates: Pending = browse + request-create(pending-marked); Registered = limited browse only; Rejected/Deactivated locked out accordingly.
    - Age eligibility service: <16 ineligible; 16–17 requires consent document on file.
 6. **Frontend work:** Profile view/edit forms (blood-type source shown; unverified type labeled "not medically confirmed"); document upload UI; officer verification queue screens with decision actions.
@@ -169,10 +169,10 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 6 — Blood Request Lifecycle
+## PHASE 6 - Blood Request Lifecycle
 
 1. **Objective:** Implement FR-05 creation and FR-14 status management with auto-expiry and match-affecting edit detection.
-2. **Requirements covered:** FR-05, FR-14; §9.5 statuses/transitions; capability matrix (Pending may create, marked *pending review* — §9.2).
+2. **Requirements covered:** FR-05, FR-14; §9.5 statuses/transitions; capability matrix (Pending may create, marked *pending review* - §9.2).
 3. **Dependencies:** Phases 4–5 (auth, statuses, chapters).
 4. **Database work:**
    - `blood_requests`: requester_id, required blood type, quantity/units, facility location fields (+ lat/lng), urgency enum(routine/urgent/critical), needed datetime, status enum(OPEN/FULFILLED/CANCELLED/EXPIRED), created/updated/expired_at.
@@ -189,20 +189,20 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 7 — Blood Compatibility & Matching Engine
+## PHASE 7 - Blood Compatibility & Matching Engine
 
-1. **Objective:** Build the centralized red-cell compatibility service and match generation/prioritization per §9.3–§9.4 — the system's core differentiator.
+1. **Objective:** Build the centralized red-cell compatibility service and match generation/prioritization per §9.3–§9.4 - the system's core differentiator.
 2. **Requirements covered:** FR-06, FR-07, FR-08 (display filtering only); §9.3 engine semantics; §9.4 priority chain.
 3. **Dependencies:** Phases 5–6 (eligible donors + requests exist).
 4. **Database work:**
-   - `compatibility_matrix` seed table (recipient_type → allowed donor types, red-cell ABO/Rh) — data-driven, consumed only by the service (never ad-hoc SQL elsewhere; AGENTS.md #17).
+   - `compatibility_matrix` seed table (recipient_type → allowed donor types, red-cell ABO/Rh) - data-driven, consumed only by the service (never ad-hoc SQL elsewhere; AGENTS.md #17).
    - `matches`: request_id, donor_id, generation (int), status enum(POTENTIAL/NOTIFIED/RESPONDED/COMPLETED/CLOSED), distance_km, rank_score components, created/updated_at; unique(request_id, donor_id) to guarantee no duplicates (§9.3).
 5. **Backend/API work:**
-   - `BloodCompatibilityService::getCompatibleDonorTypes(string $recipientType): array` — single authority (CONTEXT.md §6).
+   - `BloodCompatibilityService::getCompatibleDonorTypes(string $recipientType): array` - single authority (CONTEXT.md §6).
    - `MatchService`: generate(request) → eligible pool = verified ∧ available ∧ compatible ∧ age-consented; compute Haversine distance (donor/request lat-lng); rank by Compatibility → Availability → Verification → Proximity with same-chapter preference boost; upsert into `matches` with new generation number on material change; reconcile (close stale) otherwise.
    - Triggers: on request create; on material-change event from P6; manual re-run endpoint (authorized); NO notification side-effects here (P10 subscribes).
    - Read API: request-scoped donor match list honoring §9.8 field minimization (first/display name, chapter, verified/availability status, approximate distance only).
-6. **Frontend work:** Match results panel on request detail (minimal fields, chapter display filter that cannot alter underlying set — §9.3).
+6. **Frontend work:** Match results panel on request detail (minimal fields, chapter display filter that cannot alter underlying set - §9.3).
 7. **Security considerations:** Engine callable only server-side; match-list API enforces requestor ownership; privacy filter unit-tested so exact coords/phone/email/documents never serialize (§9.8); no matching logic duplicated client-side (AGENTS.md #17).
 8. **Tests required:** Full 8-type matrix correctness vs known red-cell table; incompatible-nearby never outranks compatible-far (priority invariant); generation upsert produces zero duplicate matches; distance math property tests; privacy serialization snapshot test.
 9. **Definition of Done:** Compatibility matrix exists in exactly one place; §9.3/9.4 invariants pass; matches reproducible given same inputs; audit entries for manual re-runs.
@@ -211,17 +211,17 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 8 — Donor Availability & Donation Lifecycle
+## PHASE 8 - Donor Availability & Donation Lifecycle
 
 1. **Objective:** Own donor availability states and implement donation report → officer confirmation flow feeding `last_verified_donation_at` (prerequisite for P9 timers).
 2. **Requirements covered:** FR-09, FR-13; §9.6 confirmation workflow; §9.5 RESPONDED/COMPLETED transitions; parallel engagement rule.
 3. **Dependencies:** Phases 5 (verification), 7 (matches exist).
 4. **Database work:**
-   - `availability` columns finalized on users (status enum AVAILABLE/UNAVAILABLE/STANDBY/DEACTIVATED + manual-toggle tracking) or dedicated table if history needed — choose column + audit trail via audit_log.
+   - `availability` columns finalized on users (status enum AVAILABLE/UNAVAILABLE/STANDBY/DEACTIVATED + manual-toggle tracking) or dedicated table if history needed - choose column + audit trail via audit_log.
    - `donation_reports`: donor_id, match_id/request_id, reported_at, status(PENDING_CONFIRMED/CONFIRMED/REJECTED), confirmed_by(officer), confirmed_at; `users.last_verified_donation_at` set on confirm.
 5. **Backend/API work:**
-   - Availability toggle endpoint (self-service; blocked when system-enforced states exist — enforced fully in P9); appears in matches only when Available+Verified (§8.4).
-   - Respond-to-match endpoint: POTENTIAL/NOTIFIED → RESPONDED; multiple donors may respond in parallel (no auto-cancel of others — §9.5).
+   - Availability toggle endpoint (self-service; blocked when system-enforced states exist - enforced fully in P9); appears in matches only when Available+Verified (§8.4).
+   - Respond-to-match endpoint: POTENTIAL/NOTIFIED → RESPONDED; multiple donors may respond in parallel (no auto-cancel of others - §9.5).
    - Donation report submit (donor) → officer confirmation queue action (own chapter) → transactionally: report CONFIRMED, `last_verified_donation_at`, match → COMPLETED (AGENTS.md #22).
 6. **Frontend work:** Availability switch UI; respond action on notifications/match items; donation-report form; officer confirmation queue item.
 7. **Security considerations:** Only match-owner donor responds; only chapter officer confirms; confirmation transaction prevents double-confirm races; audit events for report/confirm/reject/toggle.
@@ -232,16 +232,16 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 9 — 42-Hour Standby & Inter-Donation Cooldown
+## PHASE 9 - 42-Hour Standby & Inter-Donation Cooldown
 
 1. **Objective:** Implement the two independent post-donation time locks (FR-12/§9.6): 42-hour standby and configurable ≈3-month cooldown, both backend-enforced and non-bypassable.
 2. **Requirements covered:** FR-12 (standby/cooldown half), FR-13 (reactivation limits); §9.6 table.
 3. **Dependencies:** Phase 8 (`last_verified_donation_at` trigger event).
-4. **Database work:** `system_settings` key-value (e.g., `standby_hours=42`, `cooldown_days≈90`) so durations are configurable; standby derivable from `last_verified_donation_at + settings` (stateless computation preferred over cron-mutated flags — avoids stale-state bugs).
+4. **Database work:** `system_settings` key-value (e.g., `standby_hours=42`, `cooldown_days≈90`) so durations are configurable; standby derivable from `last_verified_donation_at + settings` (stateless computation preferred over cron-mutated flags - avoids stale-state bugs).
 5. **Backend/API work:**
    - Eligibility function used by MatchService: donor excluded while `now < last_verified_donation_at + standby` OR `now < last_verified_donation_at + cooldown`.
    - On donation confirmation: set availability to STANDBY; automatic return to AVAILABLE computed when window lapses (lazy evaluation on read/match, no cron dependency).
-   - Self-reactivation path: permitted for ordinary toggles only — cooldowns/standby cannot be bypassed (server-checked, §9.6).
+   - Self-reactivation path: permitted for ordinary toggles only - cooldowns/standby cannot be bypassed (server-checked, §9.6).
 6. **Frontend work:** Donor status card showing standby/cooldown remaining time; disabled toggle with explanatory state.
 7. **Security considerations:** All window math server-side; client receives read-only remaining-time; regression guard: self-service endpoint refuses when within either window; audit events on entry/exit where computable.
 8. **Tests required:** Time-travel/unit tests with injected clock: boundary at 42h; boundary at ~90 days; non-response does NOT create standby (negative test, §9.6); bypass attempt fails; configurable values respected.
@@ -251,14 +251,14 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 10 — Notifications & Email
+## PHASE 10 - Notifications & Email
 
 1. **Objective:** Implement FR-16 in-app center and FR-17 email alerts with the §9.7 deduplication contract and critical-outreach breadth controls.
 2. **Requirements covered:** FR-16, FR-17; §9.7 (generation-based dedup, channels, critical outreach, stop conditions).
 3. **Dependencies:** Phases 6 (requests), 7 (match generations), 8 (respond events), 5 (verification/account events); email transport from XAMPP.
-4. **Database work:** `notifications` (user_id, type, title, body, related_type/related_id, channel_in_app, emailed_at nullable, read_at nullable, dedup_key varchar unique where applicable, generation int, created_at) — unique index on (dedup_key, generation) implements §9.7 mechanically.
+4. **Database work:** `notifications` (user_id, type, title, body, related_type/related_id, channel_in_app, emailed_at nullable, read_at nullable, dedup_key varchar unique where applicable, generation int, created_at) - unique index on (dedup_key, generation) implements §9.7 mechanically.
 5. **Backend/API work:**
-   - Notification service: `notify(user, event)` writing in-app record always; queuing email for defined important events (critical matches, verification decisions, request/account status changes — §9.7).
+   - Notification service: `notify(user, event)` writing in-app record always; queuing email for defined important events (critical matches, verification decisions, request/account status changes - §9.7).
    - Dedup guard: insert-or-ignore on dedup key = f(request, donor, generation); newly-eligible donor ⇒ new generation ⇒ allowed (§9.7).
    - Mailer: PHPMailer-class transport via XAMPP sendmail/SMTP config from environment (credentials never in code); retry/backoff log; rate limiter per donor (batching) honoring "no arbitrary small cap but prevent duplicate storms" (§9.7).
    - Stop conditions: fulfillment/cancel/expire events suppress queued outreach (§9.7).
@@ -272,7 +272,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 11 — Audit Logging (Coverage Completion)
+## PHASE 11 - Audit Logging (Coverage Completion)
 
 1. **Objective:** Complete append-only audit coverage across ALL workflows and expose tiered viewership (schema existed since P2; hooks were laid progressively).
 2. **Requirements covered:** FR-18; §9.10 event list + viewership tiers.
@@ -283,7 +283,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
    - Viewer APIs: SysAdmin full; Chapter Officer filtered to own chapter-relevant actors/targets; members none.
    - Retention policy config (no deletion path exposed; export/report only).
 6. **Frontend work:** Admin audit browser (filter by actor/action/date/chapter); officer-scoped view.
-7. **Security considerations:** Audit writes fail-closed (transaction aborts if critical event can't be logged — decide per-event severity); no sensitive document contents in context (§9.10); viewer APIs enforce tiers server-side.
+7. **Security considerations:** Audit writes fail-closed (transaction aborts if critical event can't be logged - decide per-event severity); no sensitive document contents in context (§9.10); viewer APIs enforce tiers server-side.
 8. **Tests required:** Event checklist walk-through: perform each §9.10 action → assert row; tier tests (officer sees only own chapter; member 403); tamper simulation (UPDATE/DELETE attempts fail).
 9. **Definition of Done:** §9.10 checklist signed off with captured sample rows per event type; viewership matrix green.
 
@@ -291,7 +291,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 12 — Analytics, Regional Blood Demand Map & Officer/Admin Dashboards (Consolidated FR-15, FR-19, FR-20)
+## PHASE 12 - Analytics, Regional Blood Demand Map & Officer/Admin Dashboards (Consolidated FR-15, FR-19, FR-20)
 
 > **Status:** ✅ **IMPLEMENTED AND VERIFIED** (2026-08-27) · Evidence: `docs/test-log-phase12.md` · Suite: `tests/phase12.ps1` (32/32 assertions green).
 
@@ -310,21 +310,21 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 13 — Analytics & Reporting [CONSOLIDATED INTO PHASE 12]
+## PHASE 13 - Analytics & Reporting [CONSOLIDATED INTO PHASE 12]
 
 > **Status:** ✅ **CONSOLIDATED AND DELIVERED IN PHASE 12** (2026-08-27).  
 > The requirements for FR-19 (§9.11) were built into `AnalyticsRepository.php`, `GET /api/analytics/summary`, and `AnalyticsPage.jsx` as part of the unified Phase 12 implementation. Verified via `tests/phase12.ps1` and `docs/test-log-phase12.md`. No separate work is pending for this phase.
 
 ---
 
-## PHASE 14 — Regional Demand Map [CONSOLIDATED INTO PHASE 12]
+## PHASE 14 - Regional Demand Map [CONSOLIDATED INTO PHASE 12]
 
 > **Status:** ✅ **CONSOLIDATED AND DELIVERED IN PHASE 12** (2026-08-27).  
 > The requirements for FR-15 (§9.9) were built into `DemandMapController.php`, `GET /api/demand-map`, and `DemandMapPage.jsx` as part of the unified Phase 12 implementation. Verified via `tests/phase12.ps1` and `docs/test-log-phase12.md`. No separate work is pending for this phase.
 
 ---
 
-## PHASE 15 — Frontend Integration & UX
+## PHASE 15 - Frontend Integration & UX
 
 > **Status:** ✅ **IMPLEMENTED AND VERIFIED** (2026-08-27)  
 > Complete frontend design system unification, accessibility pass, and responsive layout polish delivered via `frontend-design` and `impeccable`.  
@@ -346,7 +346,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 16 — Testing & Security Hardening
+## PHASE 16 - Testing & Security Hardening
 
 > **Status:** ✅ **IMPLEMENTED AND VERIFIED** (2026-08-27)  
 > All security hardening controls and verification suites are implemented and verified green.  
@@ -368,12 +368,12 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## PHASE 17 — Final Requirements Traceability & Handover (Historical baseline 2026-08-27)
+## PHASE 17 - Final Requirements Traceability & Handover (Historical baseline 2026-08-27)
 
-> **Status:** ✅ **IMPLEMENTED AND VERIFIED** (2026-08-27 — historical baseline; superseded for current totals by Post-Phase-17 additions and `docs/test-log-location.md`)
+> **Status:** ✅ **IMPLEMENTED AND VERIFIED** (2026-08-27 - historical baseline; superseded for current totals by Post-Phase-17 additions and `docs/test-log-location.md`)
 > Definitive FR ↔ NFR ↔ Business Rules ↔ Evidence matrix published; zero code changes at the time; historical test baseline 316/316 green (11/11 suites).
 > - **Traceability matrix:** Complete end-to-end mapping of FR-01–FR-20, documented-constraint coverage (NFR working labels), and Q1–Q25 shorthands in `docs/traceability.md` (historical 2026-08-27 revision documented 26 endpoints / 001–014 schema; see current `docs/api.md` / `docs/erd.md` for 001–018; FR numbering corrected to CONTEXT §9.1 canonical IDs).
-> - **API Inventory:** Historical inventory covering 26 endpoints in `docs/api.md` (superseded; current route table has 62 method+path registrations — see `backend/routes/api.php`).
+> - **API Inventory:** Historical inventory covering 26 endpoints in `docs/api.md` (superseded; current route table has 62 method+path registrations - see `backend/routes/api.php`).
 > - **Schema & Test logs:** Historical schema snapshot 001–014 in `docs/erd.md`; verification log in `docs/test-log-phase17.md` (preserved as historical record).
 > - **Verification Evidence (historical):** Master regression suite `tests/run_all.ps1` passing 316/316 assertions (100% green) on 2026-08-27; clean Vite production build.
 
@@ -391,7 +391,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ---
 
-## Post-Phase-17 additions (current — not a renumbered phase)
+## Post-Phase-17 additions (current - not a renumbered phase)
 
 > The repository does not establish these as a numbered phase. They are documented here without inventing fake phase history.
 
@@ -403,7 +403,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 - **Migration 017 authenticated Home feed + match lifecycle** (`database/migrations/017_match_lifecycle_feed.sql`): `matches.status` += `ACCEPTED`/`WITHDRAWN`, `donor_share_consent`/`requester_share_consent`, index `matches(request_id, status)`; `MatchDecisionService.php` (respond reconciliation incl. request-scoped Respond, accept/unaccept/withdraw/consent/contact with capacity invariant under row locks); `RequestFeedService.php` + `FeedController.php` (`GET /api/requests/feed`: compatibility-first ranking with intentional NearYou distance-first order, member-safe serializer, offset pagination); `FeedPage.jsx` (`/feed`, authenticated Home, login redirect, Home routing); `MatchesPage.jsx` (accept/withdraw/consent/contact UX, withdrawn history); lifecycle sweeps incl. `ACCEPTED` (fulfill/cancel/expiry/deactivation/verification-reject/blood-type-change) + quantity guard; lifecycle notifications (`match.responded/accepted/unaccepted/withdrawn/consent_revoked/closed`); `tests/feed.ps1` (F01–F34, 50/50).
 - **Migration 018 remediation hardening (2026-10-01)** (`database/migrations/018_remediation_hardening.sql`): `users.session_version` (session revocation epoch); `notifications.dedup_key`/`generation` backfilled + `NOT NULL`; indexes `matches(donor_id, status)`, `donation_reports(match_id, status)`. Behavior: confirm rejects non-`RESPONDED`/`ACCEPTED` with no side effects; capacity enforced on accept + confirm under request locks; accept re-validates live eligibility; atomic single-PENDING reports; atomic reset consumption + identical known/unknown throttle; DOB change re-evaluates enrollment; owner-only request coordinates; fail-closed critical audit; critical email throttle; fulfillment notices; deterministic ordered expiry with per-request claim; donor-scoped location refresh with own-rank recompute (shared `MatchService::rankScore`); server pagination for my-requests/matches; validation envelopes; upload hardening (strict `move_uploaded_file`, PDF download disposition, serve-time MIME re-check, orphan cleanup); login CSRF rotation with response token; 12h idle timeout; last-admin guard. `tests/remediation.ps1` (R01–R24, 25/25).
 - **Current verification**: `tests/run_all.ps1` 15/15 suites green, 431 assertions (Phase 3: 26, Phase 4: 23, Phase 5: 44, Phase 6: 35, Phase 7: 28, Phase 8: 30, Phase 9: 16, Phase 10: 43, Phase 11: 31, Phase 12: 32, Location: 20/20, Phase 16 security: 15, Feed: 50, Profile pictures: 13, Remediation: 25); evidence `docs/test-log-remediation.md`. Baseline runs assume a fixture-clean dev DB (see README testing notes).
-- **Remaining future work**: per AGENTS.md priority — correctness/security first; no invented roadmap items. Genuine gaps (if any) are listed in the documentation sync final report, not here.
+- **Remaining future work**: per AGENTS.md priority - correctness/security first; no invented roadmap items. Genuine gaps (if any) are listed in the documentation sync final report, not here.
 
 ---
 

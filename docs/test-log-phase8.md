@@ -1,9 +1,9 @@
-# Phase 8 Verification Log — Donor Availability & Donation Lifecycle
+# Phase 8 Verification Log - Donor Availability & Donation Lifecycle
 
 > Historical record (2026-08-26). Preserved as-run. Current baseline in `docs/test-log-location.md` (12/12, 343; Phase 8 still 30/30).
 
 Executed: 2026-08-26 · Suite: `tests/phase8.ps1` (30 assertions) · **Result: 30 passed, 0 failed**
-Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35**, phase7 **28/28** — all unchanged
+Regressions: phase3 **23/23**, phase4 **23/23**, phase5 **40/40**, phase6 **35/35**, phase7 **28/28** - all unchanged
 Runtime: PHP 8.2.12 dev server → MariaDB @ 3307, `bloodmatch_dev`; zero PHP warnings; React build clean
 
 ## Schema (migration 011) + canonical relationship decision
@@ -17,7 +17,7 @@ Duplicate PENDING reports per match are blocked at service level.
 ## DonorEligibilityService extension point
 
 `assertAvailabilityChangeAllowed(user)` currently enforces enrollment + active account.
-Phase 9 will extend this single method with 42-hour standby + inter-donation cooldown windows —
+Phase 9 will extend this single method with 42-hour standby + inter-donation cooldown windows -
 no other call sites change.
 
 ## Endpoints verified
@@ -43,7 +43,7 @@ transaction closes remaining unresolved matches (POTENTIAL/NOTIFIED/RESPONDED �
 `request.fulfilled`. Responses/reports/re-matching against a FULFILLED/non-OPEN request → 409.
 
 Rollback proof: a BEFORE UPDATE trigger forcing SIGNAL during confirmation produced HTTP 500 with
-report still PENDING, match still RESPONDED, donor timestamp NULL, request still OPEN — full atomic rollback.
+report still PENDING, match still RESPONDED, donor timestamp NULL, request still OPEN - full atomic rollback.
 
 ## Access-model refinement
 
@@ -58,7 +58,7 @@ Matched donors may call `GET /api/requests/{id}/matches` but receive **only thei
 ## Bugs found & fixed during verification
 
 1. `DonationService` called a non-existent bridge method (`AuthBridge::requireRoles`) → switched to `AuthMiddleware::requireRoles`.
-2. Donor match visibility: donors previously 403'd on the matches endpoint — added scoped own-entry view (documented above).
+2. Donor match visibility: donors previously 403'd on the matches endpoint - added scoped own-entry view (documented above).
 
 ## Known gaps / deferred
 

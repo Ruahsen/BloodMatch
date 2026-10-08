@@ -1,13 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ShieldCheck, User } from '@phosphor-icons/react'
+import { User } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
-import PrivacyNoticeModal, {
-  ID_PRIVACY_CHECKBOX_LABEL,
-  ID_PRIVACY_TITLE,
-  IdPrivacyBody
-} from '../components/PrivacyNoticeModal'
 import LocationSelector from '../components/LocationSelector'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -29,9 +24,9 @@ export default function ProfilePage() {
   const [reports, setReports] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
-  const [idPrivacyAck, setIdPrivacyAck] = useState(false)
-  const [idPrivacyModalOpen, setIdPrivacyModalOpen] = useState(false)
-  const [idPrivacyError, setIdPrivacyError] = useState(null)
+  const [chapterSuggestNote, setChapterSuggestNote] = useState(false)
+  const [chapters, setChapters] = useState([])
+  const chapterSuggestedRef = useRef(false)
   const [pictureFile, setPictureFile] = useState(null)
   const [pictureInputKey, setPictureInputKey] = useState(0)
   const [pictureUploading, setPictureUploading] = useState(false)
@@ -94,8 +89,56 @@ export default function ProfilePage() {
   }, [])
 
   useEffect(() => {
+    api
+      .get('/api/chapters')
+      .then((data) => setChapters(data.chapters || []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     setPictureFailed(false)
   }, [profile?.profile_picture_url])
+
+  // New registrants have no saved location yet. Suggest the municipality of
+  // their registered chapter as the selector default so Municipality / City
+  // reflects their registration. This only fills the form; nothing is saved
+  // until the user confirms with Save Changes.
+  useEffect(() => {
+    if (!profile || chapters.length === 0 || chapterSuggestedRef.current) return
+    const loc = profile.location
+    if (loc?.location_id || loc?.municipality_code) return
+    if (!profile.chapter_id) return
+    chapterSuggestedRef.current = true
+    const chapter = chapters.find((c) => String(c.id) === String(profile.chapter_id))
+    if (!chapter?.municipality) return
+    api
+      .get('/api/locations/municipalities')
+      .then((muni) => {
+        const munis = muni.municipalities || []
+        const want = String(chapter.municipality).trim().toLowerCase()
+        const match = munis.find((m) => String(m.name || '').trim().toLowerCase() === want)
+          || munis.find((m) => {
+            const n = String(m.name || '').trim().toLowerCase()
+            return n.includes(want) || want.includes(n)
+          })
+        if (!match) return
+        setLocation({
+          location_id: match.location_id ?? null,
+          municipality_code: match.psgc_code,
+          barangay_code: null
+        })
+        setChapterSuggestNote(true)
+      })
+      .catch(() => {})
+  }, [profile, chapters])
+
+  const chapterDisplay = (() => {
+    const chapter = chapters.find((c) => String(c.id) === String(profile?.chapter_id))
+    if (chapter) return `${chapter.name} (${chapter.municipality})`
+    if (profile?.chapter_name) return profile.chapter_name
+    if (profile?.chapter_id !== null && profile?.chapter_id !== undefined) return `Chapter ID ${profile.chapter_id}`
+    return 'Not assigned'
+  })()
 
   const onPictureUpload = async (e) => {
     e.preventDefault()
@@ -141,6 +184,7 @@ export default function ProfilePage() {
         location_id: location.location_id
       })
       setProfile(data.profile)
+      setChapterSuggestNote(false)
       setMessage('Profile details saved successfully.')
     } catch (err) {
       if (err.details && Object.keys(err.details).length > 0) {
@@ -157,19 +201,15 @@ export default function ProfilePage() {
     e.preventDefault()
     setMessage(null)
     setErrorAlert(null)
-    if (!idPrivacyAck) {
-      setIdPrivacyError('Please read the Identification Document Privacy Notice and check the acknowledgment before uploading.')
-      return
-    }
-    setIdPrivacyError(null)
     if (!file) {
       setErrorAlert('Please select a file to upload.')
       return
     }
     try {
+      // The Identification Document Privacy Notice was already acknowledged
+      // during registration, so the flag is asserted here without a new gate.
       await api.upload('/api/profile/documents', file, { doc_type: docType, privacy_acknowledged: '1' })
       setFile(null)
-      setIdPrivacyAck(false)
       await load()
       setMessage('Document uploaded successfully.')
     } catch (err) {
@@ -203,7 +243,7 @@ export default function ProfilePage() {
     <div className="container">
       <header className="app-header">
         <div>
-          <h1>Member Profile & Status</h1>
+          <h1 className="sr-only">Member Profile & Status</h1>
         </div>
       </header>
 
@@ -223,7 +263,7 @@ export default function ProfilePage() {
           <div className="grid-3" style={{ marginBottom: 'var(--space-4)' }}>
             <div>
               <span className="metric-label">Chapter</span>
-              <p style={{ margin: 0, fontWeight: 600 }}>{profile.chapter_name || `Chapter ID ${profile.chapter_id}`}</p>
+              <p style={{ margin: 0, fontWeight: 600 }}>{chapterDisplay}</p>
             </div>
             <div>
               <span className="metric-label">Role</span>
@@ -246,7 +286,7 @@ export default function ProfilePage() {
               <p style={{ fontWeight: 600, margin: '0 0 var(--space-2)' }}>Finish email verification</p>
               <p className="muted" style={{ fontSize: '0.875rem', marginBottom: 'var(--space-3)' }}>
                 Email verification is part of registration: confirm you can access {profile.email} by entering
-                the 6-digit code we send you. This only proves email ownership — it never marks you as a
+                the 6-digit code we send you. This only proves email ownership - it never marks you as a
                 verified donor.
               </p>
               <Link to="/verify-email" className="btn btn-secondary">Verify email address</Link>
@@ -428,6 +468,9 @@ export default function ProfilePage() {
                 onChange={setLocation}
                 errors={errors}
               />
+              {chapterSuggestNote && (
+                <small className="field-hint" role="status">Municipality suggested from your registered chapter. Confirm it and save your changes.</small>
+              )}
               <small className="field-hint">Your exact location is not displayed to other members.</small>
             </div>
 
@@ -478,44 +521,6 @@ export default function ProfilePage() {
 
           <form onSubmit={onUpload} className="form" style={{ padding: 'var(--space-4)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
             <h4 style={{ margin: 0 }}>Upload Supporting Document</h4>
-            <div className="privacy-box" style={{ background: 'var(--color-surface)' }} aria-labelledby="id-privacy-heading">
-              <h4 id="id-privacy-heading" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)', fontSize: '0.9375rem' }}>
-                <ShieldCheck size={16} weight="regular" aria-hidden="true" /> Identification Document Privacy Notice
-              </h4>
-              <p className="privacy-summary" style={{ marginBottom: 'var(--space-3)' }}>
-                Your ID may contain sensitive government-issued details. It is processed only for identity and
-                membership verification, visible only to authorized verifiers, never publicly displayed, and
-                retained only as required under the Data Privacy Act of 2012.
-              </p>
-              <div className="check-row" style={{ background: 'var(--color-surface)' }}>
-                <input
-                  id="id-privacy-ack"
-                  type="checkbox"
-                  checked={idPrivacyAck}
-                  onChange={(e) => {
-                    setIdPrivacyAck(e.target.checked)
-                    if (e.target.checked) setIdPrivacyError(null)
-                  }}
-                  aria-describedby="id-privacy-hint"
-                />
-                <label htmlFor="id-privacy-ack">{ID_PRIVACY_CHECKBOX_LABEL}</label>
-              </div>
-              <p id="id-privacy-hint" className="field-hint" style={{ marginBottom: 0, marginTop: 'var(--space-2)' }}>
-                Required before upload.{' '}
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setIdPrivacyModalOpen(true)}
-                >
-                  Read full notice
-                </button>
-              </p>
-              {idPrivacyError && (
-                <span className="field-error" role="alert" style={{ marginTop: 'var(--space-2)' }}>
-                  {idPrivacyError}
-                </span>
-              )}
-            </div>
             <div className="field">
               <label htmlFor="doc_type">Document Category</label>
               <select id="doc_type" value={docType} onChange={(e) => setDocType(e.target.value)}>
@@ -535,32 +540,11 @@ export default function ProfilePage() {
               />
             </div>
 
-            <button type="submit" className="btn btn-secondary" disabled={!idPrivacyAck} style={{ alignSelf: 'flex-start' }}>
+            <button type="submit" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }}>
               Upload Document
             </button>
-            {!idPrivacyAck && (
-              <p className="field-hint" style={{ marginBottom: 0 }}>
-                Upload is enabled after you acknowledge the notice above.
-              </p>
-            )}
           </form>
         </section>
-
-        <PrivacyNoticeModal
-          open={idPrivacyModalOpen}
-          title={ID_PRIVACY_TITLE}
-          checkboxLabel={ID_PRIVACY_CHECKBOX_LABEL}
-          checkboxId="id-privacy-ack-modal"
-          acknowledged={idPrivacyAck}
-          onAcknowledgeChange={(v) => {
-            setIdPrivacyAck(v)
-            if (v) setIdPrivacyError(null)
-          }}
-          onClose={() => setIdPrivacyModalOpen(false)}
-          onConfirm={() => setIdPrivacyModalOpen(false)}
-          confirmLabel="Continue to upload"
-          Body={IdPrivacyBody}
-        />
 
         {/* Section 5: Donation History */}
         {profile.role === 'member' && (

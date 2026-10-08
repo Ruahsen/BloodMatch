@@ -138,7 +138,7 @@ elseif ($foundBlocked -eq 0) { Ok 'T4 standby-blocked donor excluded from pool' 
 $nrAv = DbQuery "SELECT donor_availability FROM users WHERE id=$dNR;"
 if ($nrAv -eq 'available') { Ok 'T5 non-response left donor availability untouched' } else { Bad 'T5' "avail=$nrAv" }
 
-# ===== T6 41h59m still blocked (standby) — clock via anchor shift =====
+# ===== T6 41h59m still blocked (standby) - clock via anchor shift =====
 DbQuery "UPDATE users SET last_verified_donation_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 41 HOUR) - INTERVAL 59 MINUTE WHERE id=$dId;"
 $r = Invoke-Json $dSess.s 'Get' '/api/profile' $null $dSess.csrf
 $w = $r.body.data.profile.availability_window

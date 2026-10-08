@@ -15,8 +15,8 @@ use PDO;
  * Authenticated Home feed: requests ranked FOR a viewer.
  *
  * This is a separate ranking model from MatchService (which ranks DONORS for
- * a REQUEST). Both share the same authorities — BloodCompatibilityService,
- * DonorEligibilityService, Geo — and this service introduces no second
+ * a REQUEST). Both share the same authorities - BloodCompatibilityService,
+ * DonorEligibilityService, Geo - and this service introduces no second
  * matrix, no second Haversine, and no second eligibility implementation.
  * SQL filters candidates only; ranking and slicing happen here so the global
  * order is computed before pagination.
@@ -205,7 +205,7 @@ final class RequestFeedService
     /**
      * Tier 0 = compatible + actionable; 1 = compatible + blocked;
      * 2 = viewer blood unknown; 3 = incompatible. Incompatible rows stay
-     * visible — they rank last instead of being hidden.
+     * visible - they rank last instead of being hidden.
      */
     private function tierFor(array $ctx, string $requiredBloodType): int
     {

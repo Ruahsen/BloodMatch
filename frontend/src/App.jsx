@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { Moon, Sun, User } from '@phosphor-icons/react'
+import { ClipboardText, House, Moon, Sun, User } from '@phosphor-icons/react'
 import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useTheme } from './context/ThemeContext'
@@ -210,11 +210,35 @@ export default function App() {
           </Link>
 
           <nav className="nav nav--desktop" aria-label="Main Navigation">
-            <Link to={user ? '/feed' : '/'} className={`nav-link ${isActive(user ? '/feed' : '/') ? 'active' : ''}`} aria-current={isActive(user ? '/feed' : '/') ? 'page' : undefined}>Home</Link>
             {user ? (
               <>
-                <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined}>Profile</Link>
-                <Link to="/requests/mine" className={`nav-link ${isActive('/requests/mine') ? 'active' : ''}`} aria-current={isActive('/requests/mine') ? 'page' : undefined}>My Requests</Link>
+                <Link
+                  to="/feed"
+                  className={`nav-link nav-icon ${isActive('/feed') ? 'active' : ''}`}
+                  aria-label="Home — blood request feed"
+                  title="Home"
+                  aria-current={isActive('/feed') ? 'page' : undefined}
+                >
+                  <House size={18} weight="regular" aria-hidden="true" />
+                </Link>
+                <Link
+                  to="/profile"
+                  className={`nav-link nav-icon ${isActive('/profile') ? 'active' : ''}`}
+                  aria-label="Profile"
+                  title="Profile"
+                  aria-current={isActive('/profile') ? 'page' : undefined}
+                >
+                  <User size={18} weight="regular" aria-hidden="true" />
+                </Link>
+                <Link
+                  to="/requests/mine"
+                  className={`nav-link nav-icon ${isActive('/requests/mine') ? 'active' : ''}`}
+                  aria-label="My Requests"
+                  title="My Requests"
+                  aria-current={isActive('/requests/mine') ? 'page' : undefined}
+                >
+                  <ClipboardText size={18} weight="regular" aria-hidden="true" />
+                </Link>
                 {user.role === 'officer' && (
                   <>
                     <Link to="/officer/dashboard" className={`nav-link ${isActive('/officer/dashboard') ? 'active' : ''}`} aria-current={isActive('/officer/dashboard') ? 'page' : undefined}>Dashboard</Link>
@@ -234,7 +258,9 @@ export default function App() {
                   </>
                 )}
                 </>
-              ) : null}
+              ) : (
+                <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined}>Home</Link>
+              )}
           </nav>
 
           <div className="topbar-right">
@@ -292,12 +318,18 @@ export default function App() {
         {mobileOpen && (
           <div id="mobile-panel" className="mobile-panel" role="region" aria-label="Mobile navigation">
             <nav className="mobile-nav" aria-label="Mobile navigation">
-              <Link to={user ? '/feed' : '/'} className={`mobile-link ${isActive(user ? '/feed' : '/') ? 'active' : ''}`} aria-current={isActive(user ? '/feed' : '/') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Home</Link>
+              <Link to={user ? '/feed' : '/'} className={`mobile-link ${isActive(user ? '/feed' : '/') ? 'active' : ''}`} aria-current={isActive(user ? '/feed' : '/') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>
+                <span className="mobile-link-content"><House size={16} weight="regular" aria-hidden="true" /> Home</span>
+              </Link>
               {user ? (
                 <>
                   <div className="mobile-section-label">Account</div>
-                  <Link to="/profile" className={`mobile-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Profile</Link>
-                  <Link to="/requests/mine" className={`mobile-link ${isActive('/requests/mine') ? 'active' : ''}`} aria-current={isActive('/requests/mine') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>My Requests</Link>
+                  <Link to="/profile" className={`mobile-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>
+                    <span className="mobile-link-content"><User size={16} weight="regular" aria-hidden="true" /> Profile</span>
+                  </Link>
+                  <Link to="/requests/mine" className={`mobile-link ${isActive('/requests/mine') ? 'active' : ''}`} aria-current={isActive('/requests/mine') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>
+                    <span className="mobile-link-content"><ClipboardText size={16} weight="regular" aria-hidden="true" /> My Requests</span>
+                  </Link>
                   {user.role === 'officer' && (
                     <>
                       <div className="mobile-section-label">Officer</div>

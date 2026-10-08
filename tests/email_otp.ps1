@@ -11,10 +11,10 @@ param(
 #
 # O-series: states reachable WITH a session post-gate (auth negatives,
 # verified-account behavior, privacy, audit, matrix).
-# R-series: registration claim journey (logged-out) — the canonical OTP
+# R-series: registration claim journey (logged-out) - the canonical OTP
 #   mechanics: auto-send, wrong/expired/replay/superseded codes, cooldown,
 #   hourly budget, race, cross-user isolation, deactivated, token lifecycle.
-# G-series: the login gate — dedicated regression for the bypass where an
+# G-series: the login gate - dedicated regression for the bypass where an
 #   unverified registrant could authenticate (register -> login 200).
 #
 # Post-gate, an unverified SESSION is unreachable through public flows
@@ -65,7 +65,8 @@ function DbQuery($sql) {
 
 function New-User($email) {
     # Register only (stays logged out). Returns the claim token so callers
-    # can complete the mandatory journey before signing in.
+    # can complete the mandatory journey; a successful claim-mode verify
+    # signs the account straight in (no separate login needed).
     $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $csrf = Get-Csrf $s
     $r = Invoke-Json $s 'Post' '/api/register' @{
@@ -197,7 +198,7 @@ if ($w.status -eq 401 -and $u.status -eq 401 -and $w.body.error.message -eq $u.b
 
 # --- G06/G07 verify via the freshest 403-issued token, then login succeeds ---
 # Each blocked login mints exactly one live token (superseding the last):
-# G02's token died at G03, so G06 uses G03's token — the stale ones must be
+# G02's token died at G03, so G06 uses G03's token - the stale ones must be
 # dead, and only the latest 403-issued token verifies.
 $codeG1 = $capG1.code
 $stale = Claim-Verify $regG1.s $regG1.csrf $tokG1 $codeG1
@@ -206,7 +207,7 @@ $v = Claim-Verify $regG1.s $regG1.csrf $tokG1b $codeG1
 $authG1 = Login $emailG1
 $meG1 = Invoke-Json $authG1.s 'Get' '/api/auth/me' $null $null
 if ($stale.status -eq 401 -and $v.status -eq 200 -and $authG1 -ne $null -and $meG1.status -eq 200 -and $meG1.body.data.user.email -eq $emailG1 -and $null -ne $meG1.body.data.user.email_verified_at) {
-    Ok 'G06/G07 stale token dead; fresh token verifies; login + session work'
+    Ok 'G06/G07 stale token dead; fresh token verifies and signs in; session works'
 } else { Bad 'G06/G07' "stale=$($stale.status) verify=$($v.status) me=$($meG1.status)" }
 
 # --- G08 deactivated precedence preserved ---
@@ -257,7 +258,7 @@ $script:claimCodes += @($codeG12)
 $v12 = Claim-Verify $regG12.s $regG12.csrf $tokG12 $codeG12
 $authG12 = Login $emailG12
 if ($lg12.status -eq 403 -and $v12.status -eq 200 -and $authG12 -ne $null) {
-    Ok 'G12 403-issued token verifies; login then succeeds'
+    Ok 'G12 403-issued token verifies and signs in; password login still works'
 } else { Bad 'G12' "block=$($lg12.status) verify=$($v12.status)" }
 
 # (O03–O14 removed: unverified sessions are unreachable now that login
@@ -363,14 +364,18 @@ if ($null -ne $capR1.file -and $codeR1 -match '^\d{6}$' -and ($toR1 -match [rege
     Ok 'R03 OTP email to registrant with correct content; 201 response leaks nothing'
 } else { Bad 'R03' "to=$toR1 subj=$subjR1 body=$bodyR1 leak=$leakR1 clean=$respClean" }
 
-# --- R04 claim-mode verify without ever logging in ---
+# --- R04 claim-mode verify signs the user straight in ---
 $v = Claim-Verify $reg1.s $reg1.csrf $tok1 $codeR1
 $vfyAfter = DbQuery "SELECT IFNULL(email_verified_at,'NULL') FROM users WHERE id=$uR1;"
 $meAnon = Invoke-Json $reg1.s 'Get' '/api/auth/me' $null $null
 $tokUsed = DbQuery "SELECT IFNULL(used_at,'NULL') FROM email_otp_claim_tokens WHERE user_id=$uR1 ORDER BY id DESC LIMIT 1;"
-if ($v.status -eq 200 -and $v.body.data.verified -eq $true -and $vfyAfter -ne 'NULL' -and $meAnon.status -eq 401 -and $tokUsed -ne 'NULL') {
-    Ok 'R04 claim verify succeeds with no session; token consumed; still anonymous'
+if ($v.status -eq 200 -and $v.body.data.verified -eq $true -and $vfyAfter -ne 'NULL' -and $meAnon.status -eq 200 -and $meAnon.body.data.user.email -eq $emailR1 -and $tokUsed -ne 'NULL' -and $null -ne $v.body.data.csrf_token) {
+    Ok 'R04 claim verify succeeds and signs in; token consumed; session active, no separate login'
 } else { Bad 'R04' "status=$($v.status) verified=$vfyAfter me=$($meAnon.status) tokUsed=$tokUsed" }
+# Auto-login rotated the server CSRF (same privilege-boundary discipline as
+# password login): refresh the harness token, exactly like a real client
+# adopting the fresh token from the verify response.
+$reg1.csrf = Get-Csrf $reg1.s
 
 # --- R05 claim-mode wrong/expired codes rejected ---
 $emailR5 = "regr5$suffix@test.local"
@@ -566,10 +571,14 @@ $meX = Invoke-Json $authX.s 'Get' '/api/auth/me' $null $null
 $vfyY = DbQuery "SELECT IFNULL(email_verified_at,'NULL') FROM users WHERE id=$uRY;"
 $vfyX = DbQuery "SELECT IFNULL(email_verified_at,'NULL') FROM users WHERE id=$($uX.id);"
 # X verified itself earlier (required to hold its session); Y is verified
-# by its own token presented under X's session. Session stays X throughout.
-if ($r.status -eq 200 -and $meX.body.data.user.email -eq $emailRX -and $vfyY -ne 'NULL' -and $vfyX -ne 'NULL') {
-    Ok 'R16 token verifies its own account even under a different session'
+# by its own token presented under X's session. The explicit token wins,
+# and the session follows the verified account: it stays authenticated
+# throughout, now as Y.
+if ($r.status -eq 200 -and $meX.body.data.user.email -eq $emailRY -and $vfyY -ne 'NULL' -and $vfyX -ne 'NULL') {
+    Ok 'R16 token verifies its own account even under a different session; session follows the token owner'
 } else { Bad 'R16' "status=$($r.status) me=$($meX.body.data.user.email) y=$vfyY x=$vfyX" }
+# Restore X's session for the later journey (R18 expects X active here).
+$authX = Login $emailRX
 
 # --- R18 registration works while another session is active ---
 $regZ = Invoke-Json $authX.s 'Post' '/api/register' @{

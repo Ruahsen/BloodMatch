@@ -17,7 +17,7 @@ final class EmailVerificationRequiredException extends RuntimeException
 
     /**
      * Machine-readable guidance for the login UI. Carries only a stable
-     * code, the masked address, and a fresh single-purpose claim token —
+     * code, the masked address, and a fresh single-purpose claim token -
      * never passwords, OTPs, hashes, or other secrets.
      */
     public function details(): array

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Info } from '@phosphor-icons/react'
+import { Link, useLocation } from 'react-router-dom'
+import { ArrowRight, Check, MapPin } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -29,6 +29,22 @@ function locationLabel(loc) {
   if (!loc) return 'Location pending'
   if (loc.barangay_name) return `${loc.barangay_name}, ${loc.municipality_name}`
   return loc.municipality_name ?? loc.name ?? 'Bataan'
+}
+
+// Needed-by deadline: short PH-time readout, no seconds
+// (e.g. "Oct 12, 8:00 PM"). Stored values are UTC; Asia/Manila is the
+// authoritative display zone for this Bataan-only organization.
+function formatNeededBy(value) {
+  const d = new Date(String(value).replace(' ', 'T') + 'Z')
+  if (Number.isNaN(d.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(d)
 }
 
 function FeedCard({ item, onRespond, respondingId, consent, setConsent }) {
@@ -67,7 +83,7 @@ function FeedCard({ item, onRespond, respondingId, consent, setConsent }) {
           </div>
           <div>
             <span className="metric-label">Needed By</span>
-            <p style={{ margin: 0, fontWeight: 600 }}>{new Date(r.needed_datetime.replace(' ', 'T') + 'Z').toLocaleString()}</p>
+            <p style={{ margin: 0, fontWeight: 600 }}>{formatNeededBy(r.needed_datetime)}</p>
           </div>
           <div>
             <span className="metric-label">Approx. Distance</span>
@@ -147,6 +163,7 @@ function FeedCard({ item, onRespond, respondingId, consent, setConsent }) {
 }
 
 export default function FeedPage() {
+  const location = useLocation()
   const [data, setData] = useState(null)
   const [chapters, setChapters] = useState([])
   const [filters, setFilters] = useState({ blood_type: '', urgency: '', chapter_id: '', near_me: false })
@@ -188,7 +205,7 @@ export default function FeedPage() {
       .catch((err) => {
         if (seqRef.current !== seq) return
         // Failure keeps the last good list (if any) and surfaces the real
-        // error — including location-required errors — instead of hiding
+        // error - including location-required errors - instead of hiding
         // them behind a fabricated has_location flag.
         setErrorAlert(err.message)
       })
@@ -197,6 +214,17 @@ export default function FeedPage() {
   useEffect(() => {
     api.get('/api/chapters').then((d) => setChapters(d.chapters || [])).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const doc = location.state?.idDoc
+    if (!doc) return
+    if (doc.uploaded) {
+      setMessage('Account created and email verified. Your valid ID was uploaded for officer verification.')
+    } else if (doc.error) {
+      setErrorAlert(doc.error)
+    }
+    window.history.replaceState({}, '')
+  }, [location.state])
 
   // Single driver for filter/scope/page changes: state updates below only
   // set state, and this effect issues exactly one request per change.
@@ -248,7 +276,7 @@ export default function FeedPage() {
     <div className="container wide">
       <header className="app-header">
         <div>
-          <h1>Blood Request Feed</h1>
+          <h1 className="sr-only">Blood Request Feed</h1>
         </div>
         <Link to="/requests/new" className="btn">
           + Create New Request
@@ -401,17 +429,23 @@ export default function FeedPage() {
                 </select>
               </div>
 
-              <div className="field">
-                <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' }}>
-                  <input
-                    type="checkbox"
-                    checked={filters.near_me}
-                    disabled={!hasLocation}
-                    onChange={(e) => applyFilters({ ...filters, near_me: e.target.checked })}
-                    style={{ marginTop: '0.2rem' }}
-                  />
-                  <span>Near you</span>
-                </label>
+              <div className="field field--near">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={filters.near_me}
+                  disabled={!hasLocation}
+                  onClick={() => applyFilters({ ...filters, near_me: !filters.near_me })}
+                  className={`near-you-switch${filters.near_me ? ' is-active' : ''}`}
+                >
+                  <span className="near-you-icon" aria-hidden="true">
+                    <MapPin size={16} weight="regular" />
+                  </span>
+                  <span className="near-you-title">Near you</span>
+                  <span className="switch-track" aria-hidden="true">
+                    <span className="switch-knob" />
+                  </span>
+                </button>
                 {!hasLocation && (
                   <small className="field-hint">
                     Set your location in <Link to="/profile">Profile</Link> to use Near You.
@@ -420,13 +454,6 @@ export default function FeedPage() {
               </div>
             </div>
           </details>
-
-          <div className="medical-disclaimer" role="note" aria-label="Medical Disclaimer">
-            <div aria-hidden="true"><Info size={20} weight="regular" /></div>
-            <div>
-              <strong>Clinical confirmation required.</strong> Matches are advisory and do not replace crossmatching or physician review at the facility.
-            </div>
-          </div>
         </aside>
       </div>
     </div>
