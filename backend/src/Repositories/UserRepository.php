@@ -68,14 +68,22 @@ final class UserRepository
         return $stmt->fetchColumn() !== false;
     }
 
+    public function chapterMunicipality(int $chapterId): ?string
+    {
+        $stmt = Database::pdo()->prepare('SELECT municipality FROM chapters WHERE id = ? LIMIT 1');
+        $stmt->execute([$chapterId]);
+        $value = $stmt->fetchColumn();
+        return $value === false || $value === null ? null : (string) $value;
+    }
+
     public function create(array $user): int
     {
         $stmt = Database::pdo()->prepare(
             'INSERT INTO users
                 (email, password_hash, full_name, phone, role, chapter_id, verification_status,
                  account_status, date_of_birth, blood_type, blood_type_source, blood_type_verified,
-                 latitude, longitude)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 latitude, longitude, location_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         try {
@@ -94,6 +102,7 @@ final class UserRepository
                 $user['blood_type_verified'],
                 $user['latitude'],
                 $user['longitude'],
+                $user['location_id'],
             ]);
         } catch (Throwable $e) {
             if ($e instanceof \PDOException && $e->getCode() === '23000') {

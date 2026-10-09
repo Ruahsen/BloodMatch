@@ -11,6 +11,8 @@ export default function OfficerVerificationPage() {
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [search, setSearch] = useState('')
+  const [sortNewest, setSortNewest] = useState(false)
 
   const loadQueue = useCallback(() => {
     return api
@@ -61,12 +63,25 @@ export default function OfficerVerificationPage() {
   if (!queue) {
     return (
       <div className="container">
+        {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
           <p className="muted">Loading verification queue…</p>
         </div>
       </div>
     )
   }
+
+  const needle = search.trim().toLowerCase()
+  const visibleQueue = queue.queue
+    .filter((m) => {
+      if (!needle) return true
+      return m.full_name.toLowerCase().includes(needle) || m.email.toLowerCase().includes(needle)
+    })
+    .sort((a, b) => {
+      const ta = new Date(String(a.created_at).replace(' ', 'T') + 'Z').getTime()
+      const tb = new Date(String(b.created_at).replace(' ', 'T') + 'Z').getTime()
+      return sortNewest ? tb - ta : ta - tb
+    })
 
   return (
     <div className="container">
@@ -85,10 +100,41 @@ export default function OfficerVerificationPage() {
             <h3>Pending Verifications ({queue.queue.length})</h3>
           </div>
 
+          <div className="grid-2" style={{ marginBottom: 'var(--space-4)' }}>
+            <div className="field">
+              <label htmlFor="queue-search">Search by name or email</label>
+              <input
+                id="queue-search"
+                type="search"
+                autoComplete="off"
+                placeholder="Type to filter this queue"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="queue-sort">Sort order</label>
+              <select id="queue-sort" value={sortNewest ? 'newest' : 'oldest'} onChange={(e) => setSortNewest(e.target.value === 'newest')}>
+                <option value="oldest">Oldest first</option>
+                <option value="newest">Newest first</option>
+              </select>
+            </div>
+          </div>
+          {needle && (
+            <p className="muted" role="status" style={{ fontSize: '0.8125rem', marginTop: 'calc(0px - var(--space-3))' }}>
+              Showing {visibleQueue.length} of {queue.queue.length} pending members.
+            </p>
+          )}
+
           {queue.queue.length === 0 ? (
             <div className="empty-state">
               <h3>All caught up!</h3>
               <p>There are no pending member verifications in your chapter queue.</p>
+            </div>
+          ) : visibleQueue.length === 0 ? (
+            <div className="empty-state">
+              <h3>No matches in this queue</h3>
+              <p>No pending member matches the current search. Clear the search to see the full queue.</p>
             </div>
           ) : (
             <div className="table-container">
@@ -101,7 +147,7 @@ export default function OfficerVerificationPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {queue.queue.map((m) => (
+                  {visibleQueue.map((m) => (
                     <tr key={m.id}>
                       <td><strong>{m.full_name}</strong></td>
                       <td><code>{m.email}</code></td>

@@ -69,7 +69,7 @@ function ContactPanel({ matchId, side, onError }) {
         )}
       </div>
       <p className="muted" style={{ fontSize: '0.75rem', margin: 'var(--space-2) 0 0' }}>
-        Donor: {contact.donor_email} · Requester: {contact.requester_email}. Revoking access here cannot unsend an address already saved elsewhere.
+        Donor: {contact.donor_email} · Requester: {contact.requester_email}
       </p>
       {error && <p className="muted" style={{ fontSize: '0.8125rem', margin: 'var(--space-2) 0 0' }}>{error}</p>}
       <div className="button-group" style={{ marginTop: 'var(--space-2)' }}>

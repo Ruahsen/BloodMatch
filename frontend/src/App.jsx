@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { ClipboardText, House, Moon, Sun, User } from '@phosphor-icons/react'
+import { ChartBar, CheckCircle, ClipboardText, House, MapPin, Moon, Scroll, ShieldCheck, SquaresFour, Sun, User } from '@phosphor-icons/react'
 import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useTheme } from './context/ThemeContext'
@@ -241,20 +241,100 @@ export default function App() {
                 </Link>
                 {user.role === 'officer' && (
                   <>
-                    <Link to="/officer/dashboard" className={`nav-link ${isActive('/officer/dashboard') ? 'active' : ''}`} aria-current={isActive('/officer/dashboard') ? 'page' : undefined}>Dashboard</Link>
-                    <Link to="/demand-map" className={`nav-link ${isActive('/demand-map') ? 'active' : ''}`} aria-current={isActive('/demand-map') ? 'page' : undefined}>Demand Map</Link>
-                    <Link to="/analytics" className={`nav-link ${isActive('/analytics') ? 'active' : ''}`} aria-current={isActive('/analytics') ? 'page' : undefined}>Analytics</Link>
-                    <Link to="/officer/verifications" className={`nav-link ${isActive('/officer/verifications') ? 'active' : ''}`} aria-current={isActive('/officer/verifications') ? 'page' : undefined}>Verifications</Link>
-                    <Link to="/officer/confirmations" className={`nav-link ${isActive('/officer/confirmations') ? 'active' : ''}`} aria-current={isActive('/officer/confirmations') ? 'page' : undefined}>Confirmations</Link>
-                    <Link to="/officer/audit-logs" className={`nav-link ${isActive('/officer/audit-logs') ? 'active' : ''}`} aria-current={isActive('/officer/audit-logs') ? 'page' : undefined}>Audit Logs</Link>
+                    <Link
+                      to="/officer/dashboard"
+                      className={`nav-link nav-icon ${isActive('/officer/dashboard') ? 'active' : ''}`}
+                      aria-label="Officer dashboard"
+                      title="Dashboard"
+                      aria-current={isActive('/officer/dashboard') ? 'page' : undefined}
+                    >
+                      <SquaresFour size={18} weight="regular" aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/demand-map"
+                      className={`nav-link nav-icon ${isActive('/demand-map') ? 'active' : ''}`}
+                      aria-label="Regional blood demand map"
+                      title="Demand Map"
+                      aria-current={isActive('/demand-map') ? 'page' : undefined}
+                    >
+                      <MapPin size={18} weight="regular" aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/analytics"
+                      className={`nav-link nav-icon ${isActive('/analytics') ? 'active' : ''}`}
+                      aria-label="Analytics and reporting"
+                      title="Analytics"
+                      aria-current={isActive('/analytics') ? 'page' : undefined}
+                    >
+                      <ChartBar size={18} weight="regular" aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/officer/verifications"
+                      className={`nav-link nav-icon ${isActive('/officer/verifications') ? 'active' : ''}`}
+                      aria-label="Member verifications"
+                      title="Verifications"
+                      aria-current={isActive('/officer/verifications') ? 'page' : undefined}
+                    >
+                      <ShieldCheck size={18} weight="regular" aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/officer/confirmations"
+                      className={`nav-link nav-icon ${isActive('/officer/confirmations') ? 'active' : ''}`}
+                      aria-label="Donation confirmations"
+                      title="Confirmations"
+                      aria-current={isActive('/officer/confirmations') ? 'page' : undefined}
+                    >
+                      <CheckCircle size={18} weight="regular" aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/officer/audit-logs"
+                      className={`nav-link nav-icon ${isActive('/officer/audit-logs') ? 'active' : ''}`}
+                      aria-label="Officer audit logs"
+                      title="Audit Logs"
+                      aria-current={isActive('/officer/audit-logs') ? 'page' : undefined}
+                    >
+                      <Scroll size={18} weight="regular" aria-hidden="true" />
+                    </Link>
                   </>
                 )}
                 {user.role === 'admin' && (
                   <>
-                    <Link to="/admin/dashboard" className={`nav-link ${isActive('/admin/dashboard') ? 'active' : ''}`} aria-current={isActive('/admin/dashboard') ? 'page' : undefined}>Dashboard</Link>
-                    <Link to="/demand-map" className={`nav-link ${isActive('/demand-map') ? 'active' : ''}`} aria-current={isActive('/demand-map') ? 'page' : undefined}>Demand Map</Link>
-                    <Link to="/analytics" className={`nav-link ${isActive('/analytics') ? 'active' : ''}`} aria-current={isActive('/analytics') ? 'page' : undefined}>Analytics</Link>
-                    <Link to="/admin/audit-logs" className={`nav-link ${isActive('/admin/audit-logs') ? 'active' : ''}`} aria-current={isActive('/admin/audit-logs') ? 'page' : undefined}>Audit Logs</Link>
+                    <Link
+                      to="/admin/dashboard"
+                      className={`nav-link nav-icon ${isActive('/admin/dashboard') ? 'active' : ''}`}
+                      aria-label="Admin dashboard"
+                      title="Dashboard"
+                      aria-current={isActive('/admin/dashboard') ? 'page' : undefined}
+                    >
+                      <SquaresFour size={18} weight="regular" aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/demand-map"
+                      className={`nav-link nav-icon ${isActive('/demand-map') ? 'active' : ''}`}
+                      aria-label="Regional blood demand map"
+                      title="Demand Map"
+                      aria-current={isActive('/demand-map') ? 'page' : undefined}
+                    >
+                      <MapPin size={18} weight="regular" aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/analytics"
+                      className={`nav-link nav-icon ${isActive('/analytics') ? 'active' : ''}`}
+                      aria-label="Analytics and reporting"
+                      title="Analytics"
+                      aria-current={isActive('/analytics') ? 'page' : undefined}
+                    >
+                      <ChartBar size={18} weight="regular" aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/admin/audit-logs"
+                      className={`nav-link nav-icon ${isActive('/admin/audit-logs') ? 'active' : ''}`}
+                      aria-label="Admin audit logs"
+                      title="Audit Logs"
+                      aria-current={isActive('/admin/audit-logs') ? 'page' : undefined}
+                    >
+                      <Scroll size={18} weight="regular" aria-hidden="true" />
+                    </Link>
                   </>
                 )}
                 </>

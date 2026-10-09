@@ -58,6 +58,7 @@ final class AuthService
         $chapterId = Request::int('chapter_id', $input);
         $dob = Request::str('date_of_birth', $input);
         $bloodType = Request::str('blood_type', $input);
+        $locationId = null;
         $latitude = null;
         $longitude = null;
 
@@ -107,6 +108,21 @@ final class AuthService
             $v->addError('chapter_id', 'Chapter does not exist.');
         }
 
+        // Seed an approximate administrative location from the registered
+        // chapter's municipality so proximity features (e.g. Near-you) work
+        // immediately without a Profile visit. Coordinates always come from
+        // the canonical bataan_locations row - never from client input, and
+        // never from the chapter centroid. The member can still refine this
+        // later via Profile (PUT /api/profile { location_id }).
+        if ($chapterId !== null && $this->users->chapterExists($chapterId)) {
+            $seeded = $this->resolveChapterMunicipality($chapterId);
+            if ($seeded !== null) {
+                $locationId = $seeded['location_id'];
+                $latitude = $seeded['latitude'];
+                $longitude = $seeded['longitude'];
+            }
+        }
+
         if (!self::isPrivacyAcknowledged($input['privacy_acknowledged'] ?? null)) {
             $v->addError('privacy_acknowledged', 'You must read and acknowledge the Privacy Notice to create an account.');
         }
@@ -134,6 +150,7 @@ final class AuthService
             'blood_type_verified' => 0,
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'location_id' => $locationId,
         ]);
 
         // Registration-time email OTP: the account is authoritative from
@@ -168,12 +185,49 @@ final class AuthService
         AuditLogger::log($userId, 'user.registered', 'user', (string) $userId, [
             'verification_status' => 'pending',
             'email_otp_delivered' => $emailOtp['delivered'],
+            'location_id' => $locationId,
         ]);
 
         return [
             'user' => $this->publicUser($this->users->findById($userId)),
             'email_otp' => $emailOtp,
         ];
+    }
+
+    /**
+     * Match a chapter's municipality to its canonical bataan_locations row.
+     * Returns the resolved row (with backend-derived coordinates) or null
+     * when no match exists - registration then proceeds without a location,
+     * exactly as before.
+     */
+    private function resolveChapterMunicipality(int $chapterId): ?array
+    {
+        $municipality = $this->users->chapterMunicipality($chapterId);
+        if ($municipality === null || trim($municipality) === '') {
+            return null;
+        }
+        $want = strtolower(trim($municipality));
+        $fallback = null;
+        $match = null;
+        foreach (LocationService::listMunicipalities() as $muni) {
+            $name = strtolower(trim($muni['name']));
+            if ($name === $want) {
+                $match = $muni;
+                break;
+            }
+            if ($fallback === null && (str_contains($name, $want) || str_contains($want, $name))) {
+                $fallback = $muni;
+            }
+        }
+        $match = $match ?? $fallback;
+        if ($match === null) {
+            return null;
+        }
+        $row = LocationService::resolveLocationId($match['location_id']);
+        if ($row['latitude'] === null || $row['longitude'] === null) {
+            return null;
+        }
+        return $row;
     }
 
     public function login(string $email, string $password): array
