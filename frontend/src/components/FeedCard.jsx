@@ -1,11 +1,13 @@
 import React, { useId, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CaretDown, CheckCircle, User } from '@phosphor-icons/react'
+import { ArrowRight, CaretDown, CheckCircle, Drop, User } from '@phosphor-icons/react'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
 import { BloodTypeBlock } from './ui/BloodTypeBlock'
 import ConfirmationDialog from './ConfirmationDialog'
+import { useAuth } from '../context/AuthContext'
 import { api } from '../services/apiClient'
 import styles from './FeedCard.module.css'
 
@@ -30,6 +32,8 @@ function formatPostedTime(value) {
 export function FeedCard({ request, hideActions = false, defaultExpanded = false, showNeededYear = false, children }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [confirmingResponse, setConfirmingResponse] = useState(false)
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const responseBusyRef = useRef(false)
   const detailsId = useId()
   const reasonId = useId()
@@ -39,12 +43,17 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
     onSuccess: () => {
       setConfirmingResponse(false)
       queryClient.invalidateQueries({ queryKey: ['home-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['my-responses'] })
+      queryClient.invalidateQueries({ queryKey: ['request-matches', request.id] })
+      navigate(`/requests/${request.id}/matches`)
     },
     onError: () => queryClient.invalidateQueries({ queryKey: ['home-feed'] }),
     onSettled: () => { responseBusyRef.current = false }
   })
   const responded = request.responded || response.isSuccess
-  const canRespond = request.can_respond === true && !responded
+  const isEnrolledNow = Boolean(user && user.donor_enrolled === true)
+  const isNotEnrolled = !isEnrolledNow && (request.reason_code === 'not_enrolled' || Boolean(user && user.donor_enrolled === false && user.role === 'member'))
+  const canRespond = (request.can_respond === true || (isEnrolledNow && request.reason_code === 'not_enrolled' && user?.verification_status === 'verified')) && !responded
   const confirmResponse = () => {
     if (!canRespond || response.isPending || responseBusyRef.current) return
     responseBusyRef.current = true
@@ -115,14 +124,60 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
             {!hideActions && (
               <div>
                 <footer className={styles.actions}>
-                  <Button type="button" variant="primary" disabled={!canRespond || response.isPending}
+                  <Button type="button" variant="primary" disabled={(!canRespond && !isNotEnrolled) || response.isPending}
                     isLoading={response.isPending} aria-describedby={responseReason ? reasonId : undefined}
-                    onClick={() => { response.reset(); setConfirmingResponse(true) }}>
+                    title={isNotEnrolled ? 'Enroll as donor to respond.' : undefined}
+                    onClick={() => {
+                      if (isNotEnrolled) {
+                        navigate('/profile')
+                        return
+                      }
+                      response.reset()
+                      setConfirmingResponse(true)
+                    }}>
                     {responded ? 'Responded' : 'Respond'}
                   </Button>
                   <Button className={styles.viewRequest} variant="secondary" to={`/requests/${request.id}/matches`}>View request</Button>
                 </footer>
-                {responseReason && <p id={reasonId} className={styles.responseReason} role="status">{responseReason}</p>}
+                {isNotEnrolled ? (
+                  <div className={styles.enrollPrompt} role="region" aria-label="Donor enrollment required">
+                    <div className={styles.enrollPromptContent}>
+                      <span className={styles.enrollPromptIcon} aria-hidden="true">
+                        <Drop size={18} weight="fill" />
+                      </span>
+                      <div className={styles.enrollPromptText}>
+                        <strong className={styles.enrollPromptTitle}>Enroll as a donor to respond</strong>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.enrollPromptButton}
+                      onClick={() => navigate('/profile')}
+                      aria-label="Go to profile to enroll as a donor"
+                    >
+                      <span>Enroll as Donor</span>
+                      <ArrowRight size={14} weight="bold" aria-hidden="true" />
+                    </button>
+                    <p
+                      id={reasonId}
+                      className={`${styles.responseReason} ${styles.clickableReason}`}
+                      role="status"
+                      title="Enroll as donor to respond."
+                      onClick={() => navigate('/profile')}
+                      style={{ display: 'none' }}
+                    >
+                      {responseReason || 'Enroll as donor to respond.'}
+                    </p>
+                  </div>
+                ) : responseReason ? (
+                  <p
+                    id={reasonId}
+                    className={styles.responseReason}
+                    role="status"
+                  >
+                    {responseReason}
+                  </p>
+                ) : null}
                 {response.isError && <p className={styles.responseReason} role="alert">{response.error.message}</p>}
               </div>
             )}

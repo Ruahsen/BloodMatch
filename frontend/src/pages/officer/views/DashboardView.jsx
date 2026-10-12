@@ -5,6 +5,7 @@ import { api } from '../../../services/apiClient'
 import { useAuth } from '../../../context/AuthContext'
 import DemandMapWidget from '../../../components/DemandMapWidget'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
+import { formatPhilippineDateTime } from '../../../services/dateTime'
 
 export default function DashboardView() {
   const { user } = useAuth()
@@ -65,10 +66,10 @@ export default function DashboardView() {
           </div>
         </div>
         <div className="button-group">
-          <Link to="/demand-map" className="btn btn-secondary btn-sm">
+          <Link to="/officer/demand-map" className="btn btn-secondary btn-sm">
             Regional Demand Map
           </Link>
-          <Link to="/analytics" className="btn btn-secondary btn-sm">
+          <Link to="/officer/analytics" className="btn btn-secondary btn-sm">
             Analytics & Reports
           </Link>
         </div>
@@ -93,7 +94,7 @@ export default function DashboardView() {
           <div>
             <span className="metric-label">Pending Confirmations</span>
             <div className="metric-value" style={{ margin: 'var(--space-1) 0' }}>
-              {metrics.pending_donation_confirmations || 0}
+              {metrics.pending_donation_reports ?? metrics.pending_donation_confirmations ?? 0}
             </div>
             <p className="metric-sub">Completed donation reports to confirm</p>
           </div>
@@ -112,7 +113,7 @@ export default function DashboardView() {
               {metrics.total_units_needed || 0} total units currently needed
             </p>
           </div>
-          <Link to="/demand-map" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+          <Link to="/officer/demand-map" className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-3)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
             View Chapter Demand Map <ArrowRight size={14} weight="regular" aria-hidden="true" />
           </Link>
         </div>
@@ -129,9 +130,10 @@ export default function DashboardView() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-2)' }}>
             {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bt) => {
-              const reqCount = demandByBt[bt]?.requests_count || 0
-              const unitsNeeded = demandByBt[bt]?.units_needed || 0
-              const hasDemand = reqCount > 0
+              const entry = demandByBt[bt]
+              const reqCount = typeof entry === 'object' ? (entry?.requests_count || entry?.requests || 0) : (typeof entry === 'number' ? entry : 0)
+              const unitsNeeded = typeof entry === 'object' ? (entry?.units_needed || entry?.units || 0) : (typeof entry === 'number' ? entry : 0)
+              const hasDemand = reqCount > 0 || unitsNeeded > 0
 
               return (
                 <div
@@ -146,7 +148,7 @@ export default function DashboardView() {
                 >
                   <div style={{ fontWeight: 800, fontSize: '1rem' }}>{bt}</div>
                   <div style={{ fontSize: '0.75rem', color: hasDemand ? 'var(--color-text)' : 'var(--color-text-subtle)' }}>
-                    {reqCount > 0 ? `${reqCount} req (${unitsNeeded}u)` : '–'}
+                    {hasDemand ? `${reqCount} req (${unitsNeeded}u)` : '–'}
                   </div>
                 </div>
               )
@@ -203,7 +205,7 @@ export default function DashboardView() {
       <section style={{ marginBottom: 'var(--space-6)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
           <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Active Regional Blood Demand</h2>
-          <Link to="/demand-map" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+          <Link to="/officer/demand-map" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
             Full Map &amp; Filters <ArrowRight size={14} />
           </Link>
         </div>
@@ -224,7 +226,7 @@ export default function DashboardView() {
             <table>
               <thead>
                 <tr>
-                  <th>Timestamp (UTC)</th>
+                  <th>Timestamp</th>
                   <th>Action Event</th>
                   <th>Actor</th>
                   <th>Target</th>
@@ -233,7 +235,7 @@ export default function DashboardView() {
               <tbody>
                 {recentLogs.map((log) => (
                   <tr key={log.id}>
-                    <td><code>{log.created_at}</code></td>
+                    <td><code>{formatPhilippineDateTime(log.created_at)}</code></td>
                     <td><strong>{log.action}</strong></td>
                     <td>{log.actor_name || (log.actor_id ? `User #${log.actor_id}` : 'System')}</td>
                     <td>{log.target_type ? `${log.target_type} #${log.target_id}` : '–'}</td>

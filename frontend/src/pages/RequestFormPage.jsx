@@ -23,6 +23,14 @@ function draftSnapshot(form, location) {
   ])
 }
 
+function getTodayLocalDate() {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange, onConfirmSave }) {
   const editing = Boolean(id)
   const { user, refresh } = useAuth()
@@ -187,9 +195,13 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
     }
     if (currentStep === 3) {
       if (!form.urgency) newErrors.urgency = ['Urgency level is required.']
-      if (!form.needed_date) newErrors.needed_date = ['Date needed is required.']
+      if (!form.needed_date) {
+        newErrors.needed_date = ['Date needed is required.']
+      } else if (form.needed_date < getTodayLocalDate()) {
+        newErrors.needed_date = ['Date needed cannot be earlier than today.']
+      }
       if (!form.needed_time) newErrors.needed_time = ['Time needed is required.']
-      if (form.needed_date && form.needed_time) {
+      if (form.needed_date && form.needed_time && (!newErrors.needed_date)) {
         const selected = new Date(`${form.needed_date}T${form.needed_time}`)
         if (isNaN(selected.getTime()) || selected.getTime() <= Date.now()) {
           newErrors.needed_datetime = ['Needed date and time must be in the future.']
@@ -372,7 +384,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
                   <input
                     id="needed_date"
                     type="date"
-                    min={new Date().toISOString().slice(0, 10)}
+                    min={getTodayLocalDate()}
                     value={form.needed_date}
                     onChange={setField('needed_date')}
                     required

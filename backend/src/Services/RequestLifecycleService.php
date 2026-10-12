@@ -76,6 +76,7 @@ final class RequestLifecycleService
                     sprintf('Your blood request #%d has been cancelled.', $requestId), [
                         'related_type' => 'blood_request', 'related_id' => $requestId,
                         'dedup_key' => "request:{$requestId}:cancelled",
+                        'email' => NotificationService::EMAIL_NORMAL,
                     ]);
             });
         } catch (RuntimeException $e) {
@@ -98,6 +99,7 @@ final class RequestLifecycleService
                 sprintf('Your blood request #%d passed its needed date and has expired.', $requestId), [
                     'related_type' => 'blood_request', 'related_id' => $requestId,
                     'dedup_key' => 'request:' . $requestId . ':expired',
+                    'email' => NotificationService::EMAIL_NORMAL,
                 ]);
             return ['id' => $requestId, 'requester_id' => (int) $request['requester_id'], 'closed_matches' => $closed];
         });

@@ -115,6 +115,51 @@ final class MatchRepository
         return $requesterToDonor->fetchColumn() !== false ? 'requester_of_responded_donor' : null;
     }
 
+    /**
+     * Determines whether two users share an active blood match, and returns the
+     * match role of $currentUserId relative to $otherUserId ('donor' or 'requestor').
+     */
+    public function getMatchRole(int $currentUserId, int $otherUserId): ?string
+    {
+        if ($currentUserId <= 0 || $otherUserId <= 0 || $currentUserId === $otherUserId) {
+            return null;
+        }
+
+        // Case A: $currentUserId is the DONOR, $otherUserId is the REQUESTOR
+        $donorStmt = Database::pdo()->prepare(
+            "SELECT m.id
+             FROM matches m
+             JOIN blood_requests br ON br.id = m.request_id
+             WHERE m.donor_id = ? AND br.requester_id = ?
+               AND m.status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED', 'COMPLETED')
+               AND br.status IN ('OPEN', 'FULFILLED')
+             ORDER BY (CASE WHEN br.status = 'OPEN' THEN 0 ELSE 1 END), m.id DESC
+             LIMIT 1"
+        );
+        $donorStmt->execute([$currentUserId, $otherUserId]);
+        if ($donorStmt->fetchColumn() !== false) {
+            return 'donor';
+        }
+
+        // Case B: $currentUserId is the REQUESTOR, $otherUserId is the DONOR
+        $requesterStmt = Database::pdo()->prepare(
+            "SELECT m.id
+             FROM matches m
+             JOIN blood_requests br ON br.id = m.request_id
+             WHERE br.requester_id = ? AND m.donor_id = ?
+               AND m.status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED', 'COMPLETED')
+               AND br.status IN ('OPEN', 'FULFILLED')
+             ORDER BY (CASE WHEN br.status = 'OPEN' THEN 0 ELSE 1 END), m.id DESC
+             LIMIT 1"
+        );
+        $requesterStmt->execute([$currentUserId, $otherUserId]);
+        if ($requesterStmt->fetchColumn() !== false) {
+            return 'requestor';
+        }
+
+        return null;
+    }
+
     public static function countCompleted(int $requestId): int
     {
         $stmt = Database::pdo()->prepare(

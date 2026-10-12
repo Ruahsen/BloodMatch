@@ -286,8 +286,13 @@ final class RequestService
         return [
             'id' => (int) $row['id'],
             'requester_id' => (int) $row['requester_id'],
-            'requester_name' => $requester !== null ? (string) $requester['full_name'] : null,
-            'requester_verification_status' => $requester !== null ? (string) $requester['verification_status'] : null,
+            'requester_name' => $requester !== null ? (string) $requester['full_name'] : ($row['requester_name'] ?? null),
+            'requester_verification_status' => $requester !== null ? (string) $requester['verification_status'] : ($row['requester_verification_status'] ?? null),
+            'requester_chapter_name' => $row['requester_chapter_name'] ?? null,
+            'requester_profile_picture_url' => ProfilePictureStorageService::urlFor(
+                $requester !== null ? ($requester['profile_picture'] ?? null) : ($row['requester_profile_picture'] ?? null),
+                (int) $row['requester_id']
+            ),
             'request_chapter_id' => $row['request_chapter_id'] !== null ? (int) $row['request_chapter_id'] : null,
             'required_blood_type' => (string) $row['required_blood_type'],
             'quantity_units' => (int) $row['quantity_units'],
@@ -303,6 +308,8 @@ final class RequestService
             'created_at' => (string) $row['created_at'],
             'match_count' => isset($row['match_count']) ? (int) $row['match_count'] : null,
             'response_count' => isset($row['response_count']) ? (int) $row['response_count'] : null,
+            'match_id' => isset($row['match_id']) ? (int) $row['match_id'] : null,
+            'match_status' => isset($row['match_status']) ? (string) $row['match_status'] : null,
         ];
     }
 

@@ -141,3 +141,77 @@
   .historyRow { grid-template-columns: auto 1fr; }
   .historyRow > :last-child { grid-column: 2; justify-self: start; }
 }
+
+.enrollCard {
+  margin-bottom: var(--space-4);
+  border: 1.5px solid var(--color-brand-navy);
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  box-shadow: 0 4px 16px rgba(2, 0, 102, 0.08);
+  animation: enrollPulse 3s ease-in-out infinite;
+}
+
+@keyframes enrollPulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(2, 0, 102, 0.08);
+  }
+  50% {
+    box-shadow: 0 4px 18px rgba(2, 0, 102, 0.2);
+  }
+}
+
+.enrollCardContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.enrollCardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: rgba(2, 0, 102, 0.08);
+  color: var(--color-brand-navy);
+  flex-shrink: 0;
+}
+
+.enrollCardDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.enrollCardDetails h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-h3);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.enrollCardDetails p {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .enrollCardContent {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .enrollCardIcon {
+    margin: 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enrollCard {
+    animation: none;
+  }
+}

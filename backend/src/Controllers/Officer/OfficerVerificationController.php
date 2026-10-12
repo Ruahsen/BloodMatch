@@ -51,12 +51,15 @@ final class OfficerVerificationController
         $page = max(1, Request::int('page') ?? 1);
         $pageSize = min(100, max(1, Request::int('page_size') ?? 25));
         $requestedChapter = Request::str('chapter_id');
+        $sort = Request::str('sort') ?? 'oldest';
         $filters = [
             'chapter_id' => $isAdmin ? $requestedChapter : (string) $ownChapter,
             'q' => Request::str('q'),
+            'sort' => $sort,
         ];
         $result = (new UserRepository())->pendingVerificationMembers($filters, $page, $pageSize);
         Response::success([
+            'sort' => $sort,
             'chapter_id' => $isAdmin
                 ? ($requestedChapter !== null && preg_match('/^\d+$/', $requestedChapter) ? (int) $requestedChapter : null)
                 : $ownChapter,

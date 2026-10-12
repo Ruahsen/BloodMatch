@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BloodMatch\Controllers\Auth;
 
+use BloodMatch\Http\Session;
 use BloodMatch\Repositories\AuthThrottleRepository;
 use BloodMatch\Repositories\UserRepository;
 use BloodMatch\Services\AuditLogger;
@@ -105,7 +106,22 @@ final class EmailVerificationController
 
         AuditLogger::log((int) $user['id'], 'auth.email_verify.success', 'user', (string) $user['id']);
 
-        Response::success(['message' => 'Email verified successfully.', 'email_verified' => true]);
+        $userRecord = $this->users->findById((int) $user['id']);
+        $authService = new AuthService();
+        $publicUser = null;
+
+        if ($userRecord !== null && (string) ($userRecord['account_status'] ?? '') !== 'deactivated') {
+            Session::regenerate();
+            $_SESSION['user_id'] = (int) $userRecord['id'];
+            $_SESSION['role'] = (string) $userRecord['role'];
+            $publicUser = $authService->publicUser($userRecord);
+        }
+
+        Response::success([
+            'message' => 'Email verified successfully.',
+            'email_verified' => true,
+            'user' => $publicUser,
+        ]);
     }
 
     public function resend(): void

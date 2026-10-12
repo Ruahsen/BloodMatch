@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Camera, CheckCircle, Drop, FileText, UploadSimple, User } from '@phosphor-icons/react'
+import { ArrowLeft, Camera, CheckCircle, Drop, FileText, UploadSimple, User, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import { useChat } from '../context/ChatContext'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
 import LocationSelector from '../components/LocationSelector'
 import RequestFormModal from '../components/RequestFormModal'
@@ -47,6 +48,7 @@ export default function ProfilePage() {
   const { id: profileId } = useParams()
   const isOtherProfile = Boolean(profileId)
   const { user, refresh } = useAuth()
+  const { openChatWithUser } = useChat()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(null)
@@ -74,9 +76,17 @@ export default function ProfilePage() {
   const [cancelError, setCancelError] = useState(null)
   const cancelBusyRef = useRef(false)
 
+  const profileQueryKey = isOtherProfile
+    ? (user?.id ? ['member-profile', profileId, user?.id] : ['member-profile', profileId])
+    : (user?.id ? ['profile', user.id] : ['profile'])
+
+  const isProfileEnabled = isOtherProfile
+    ? true
+    : (Boolean(user?.id) || Boolean(queryClient.getQueryData(['profile'])))
+
   const { data, isLoading, error: profileError, refetch } = useQuery({
-    queryKey: isOtherProfile ? ['member-profile', profileId, user?.id] : ['profile', user?.id],
-    enabled: Boolean(user?.id),
+    queryKey: profileQueryKey,
+    enabled: isProfileEnabled,
     queryFn: async () => {
       const response = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile')
       if (isOtherProfile) {
@@ -120,6 +130,8 @@ export default function ProfilePage() {
     setEnrolling(true)
     try {
       await api.post('/api/profile/enroll-donor')
+      queryClient.invalidateQueries({ queryKey: ['home-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['request-matches'] })
       await Promise.all([refetch(), refresh()])
       setMessage('You are now enrolled and available for compatible donor matches.')
     } catch (error) {
@@ -259,6 +271,17 @@ export default function ProfilePage() {
               <div className={styles.nameLine}><h1>{profile.full_name}</h1>{profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}</div>
               <p>{profile.chapter_name ? `${profile.chapter_name} member` : profile.role_label}</p>
             </div>
+            {user && user.id !== Number(profileId) && (
+              <div className={styles.headerActions}>
+                <Button
+                  variant="secondary"
+                  onClick={() => openChatWithUser(Number(profileId), { name: profile.full_name, avatar: profile.profile_picture_url })}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <ChatCircleDots size={18} weight="regular" /> Message
+                </Button>
+              </div>
+            )}
           </div>
         </header>
         <main className={styles.profileLayout}>
@@ -340,8 +363,8 @@ export default function ProfilePage() {
           </div>
         </div>
         <nav className={styles.headerNav} aria-label="Profile sections">
-          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'Donation History']].map(([section, label]) => (
-            <button key={section} type="button" aria-current={activeSection === section || (section === 'overview' && activeSection === 'edit') ? 'page' : undefined}
+          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'History']].map(([section, label]) => (
+            <button key={section} type="button" title={section === 'history' ? 'Donation History' : undefined} aria-current={activeSection === section || (section === 'overview' && activeSection === 'edit') ? 'page' : undefined}
               onClick={() => { setActiveSection(section); setEditingRequestId(null); setCancelTarget(null) }}>{label}</button>
           ))}
         </nav>
@@ -459,7 +482,23 @@ export default function ProfilePage() {
           )}
 
           {activeSection === 'overview' && (
-            <section className={styles.activitySection} aria-labelledby="profile-requests-heading">
+            <>
+              {profile.role === 'member' && profile.verification_status === 'verified' && !profile.donor_enrolled && (
+                <Card className={styles.enrollCard} role="region" aria-label="Donor enrollment prompt">
+                  <div className={styles.enrollCardContent}>
+                    <div className={styles.enrollCardIcon} aria-hidden="true">
+                      <Drop size={28} weight="fill" />
+                    </div>
+                    <div className={styles.enrollCardDetails}>
+                      <h3>Complete Your Donor Enrollment</h3>
+                    </div>
+                    <Button variant="primary" onClick={enrollAsDonor} isLoading={enrolling}>
+                      Enroll as Donor
+                    </Button>
+                  </div>
+                </Card>
+              )}
+              <section className={styles.activitySection} aria-labelledby="profile-requests-heading">
               <div className={styles.cardHeader}>
                 <h2 id="profile-requests-heading">Blood requests</h2>
                 <Button variant="secondary" disabled={!canCreateRequest} onClick={openCreateRequest}>+ Create request</Button>
@@ -494,6 +533,7 @@ export default function ProfilePage() {
                 </FeedCard>
               ))}
             </section>
+            </>
           )}
         </div>
       </main>

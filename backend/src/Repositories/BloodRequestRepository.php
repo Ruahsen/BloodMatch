@@ -79,6 +79,30 @@ final class BloodRequestRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function listByRespondedDonor(int $donorId): array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT ' . self::SAFE_COLUMNS . ',
+                    m.id AS match_id,
+                    m.status AS match_status,
+                    requester.full_name AS requester_name,
+                    requester.verification_status AS requester_verification_status,
+                    requester.profile_picture AS requester_profile_picture,
+                    requester_chapter.name AS requester_chapter_name,
+                    (SELECT COUNT(*) FROM matches mx WHERE mx.request_id = br.id AND mx.status <> \'CLOSED\') AS match_count,
+                    (SELECT COUNT(*) FROM matches rx WHERE rx.request_id = br.id AND rx.status IN (\'RESPONDED\', \'COMPLETED\')) AS response_count
+             FROM matches m
+             JOIN blood_requests br ON br.id = m.request_id
+             JOIN users requester ON requester.id = br.requester_id
+             LEFT JOIN chapters requester_chapter ON requester_chapter.id = requester.chapter_id' . self::LOCATION_JOIN . '
+             WHERE m.donor_id = ?
+               AND m.status IN (\'RESPONDED\', \'COMPLETED\')
+             ORDER BY m.id DESC LIMIT 100'
+        );
+        $stmt->execute([$donorId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function listCompatibleOpenForDonor(int $donorId, array $recipientTypes, int $limit = 50): array
     {
         $result = $this->pageCompatibleOpenForViewer(

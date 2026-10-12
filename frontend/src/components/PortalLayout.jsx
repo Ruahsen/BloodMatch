@@ -49,11 +49,11 @@ export default function PortalLayout({ children }) {
 
   const officerNavItems = [
     { label: 'Dashboard', path: '/officer/dashboard', icon: ChartBar },
-    { label: 'Demand Map', path: '/demand-map', icon: MapPin },
-    { label: 'Analytics', path: '/analytics', icon: ChartLineUp },
     { label: 'Verifications', path: '/officer/verifications', icon: ShieldCheck },
     { label: 'Confirmations', path: '/officer/confirmations', icon: CheckSquareOffset },
-    { label: 'Audit Logs', path: '/officer/audit-logs', icon: Scroll }
+    { label: 'Audit Logs', path: '/officer/audit-logs', icon: Scroll },
+    { label: 'Regional Demand Map', path: '/officer/demand-map', icon: MapPin },
+    { label: 'Analytics', path: '/officer/analytics', icon: ChartLineUp }
   ]
 
   const adminNavItems = [
@@ -65,6 +65,7 @@ export default function PortalLayout({ children }) {
 
   const navItems = user?.role === 'admin' ? adminNavItems : officerNavItems
   const portalTitle = user?.role === 'admin' ? 'Admin Portal' : 'Officer Portal'
+  const sectionTitle = user?.role === 'admin' ? 'Administrative Tools' : 'Officer Operations'
 
   return (
     <div className={`${styles.container} ${collapsed ? styles.collapsed : ''}`}>
@@ -100,13 +101,29 @@ export default function PortalLayout({ children }) {
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {collapsed ? <CaretRight size={16} /> : <CaretLeft size={16} />}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className={styles.collapseIcon}
+              aria-hidden="true"
+            >
+              <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.25" />
+              <line x1="5.5" y1="1.5" x2="5.5" y2="14.5" stroke="currentColor" strokeWidth="1.25" />
+              {collapsed ? (
+                <path d="M8.5 5.5L11 8L8.5 10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+              ) : (
+                <path d="M11 5.5L8.5 8L11 10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+              )}
+            </svg>
           </button>
         </div>
 
         <nav className={styles.nav} aria-label="Portal Secondary Navigation">
           <div className={styles.sectionLabel}>
-            {!collapsed ? 'Administrative Tools' : '•••'}
+            {!collapsed ? sectionTitle : '•••'}
           </div>
 
           {navItems.map((item) => {

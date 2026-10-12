@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 import ConfirmationDialog from '../../../components/ConfirmationDialog'
 import { normalizeRejectionReason, rejectionReasonError } from '../../../services/rejectionReason'
+import { formatPhilippineDateTime } from '../../../services/dateTime'
 import styles from './ConfirmationsView.module.css'
 
 export default function ConfirmationsView() {
@@ -16,19 +17,32 @@ export default function ConfirmationsView() {
   const [rejectTarget, setRejectTarget] = useState(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [rejectionError, setRejectionError] = useState(null)
+  const [sortOrder, setSortOrder] = useState('oldest')
   const reasonId = useId()
   const validationError = rejectionReasonError(rejectionReason)
 
-  const load = useCallback(() => {
+  const load = useCallback((sort = sortOrder) => {
     return api
-      .get('/api/officer/donation-reports')
+      .get(`/api/officer/donation-reports?sort=${sort}`)
       .then((data) => setQueue(data.pending_reports || []))
       .catch((err) => setErrorAlert(err.message))
-  }, [])
+  }, [sortOrder])
 
   useEffect(() => {
     load()
   }, [load])
+
+  const sortedQueue = useMemo(() => {
+    if (!queue) return []
+    return [...queue].sort((a, b) => {
+      const timeA = new Date(a.reported_at ? a.reported_at.replace(' ', 'T') + 'Z' : 0).getTime()
+      const timeB = new Date(b.reported_at ? b.reported_at.replace(' ', 'T') + 'Z' : 0).getTime()
+      if (timeA !== timeB) {
+        return sortOrder === 'oldest' ? timeA - timeB : timeB - timeA
+      }
+      return sortOrder === 'oldest' ? a.id - b.id : b.id - a.id
+    })
+  }, [queue, sortOrder])
 
   const decide = async (reportId, action) => {
     if (processingRef.current) return
@@ -65,10 +79,42 @@ export default function ConfirmationsView() {
 
   return (
     <div className="container">
-      <header className="app-header">
+      <header className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
-          <h1>Donation Confirmations: Chapter Queue</h1>
+          <h1 style={{ margin: 0 }}>Donation Confirmations: Chapter Queue</h1>
         </div>
+        {queue.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <label htmlFor="confirmations-sort-order" style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+              Sort:
+            </label>
+            <select
+              id="confirmations-sort-order"
+              value={sortOrder}
+              aria-label="Sort donation confirmations"
+              onChange={(e) => {
+                const newSort = e.target.value
+                setSortOrder(newSort)
+                load(newSort)
+              }}
+              className="select"
+              style={{
+                minHeight: '38px',
+                padding: 'var(--space-1) var(--space-3)',
+                borderRadius: 'var(--radius-control)',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                fontSize: 'var(--text-sm)',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+            >
+              <option value="oldest">Oldest to Newest</option>
+              <option value="newest">Newest to Oldest</option>
+            </select>
+          </div>
+        )}
       </header>
 
       {message && <div className="alert alert-success" role="status">{message}</div>}
@@ -84,7 +130,7 @@ export default function ConfirmationsView() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {queue.map((r) => (
+          {sortedQueue.map((r) => (
             <article key={r.id} className="card">
               <div className="card-header">
                 <div>
@@ -106,7 +152,7 @@ export default function ConfirmationsView() {
                   </div>
                   <div>
                     <span className="metric-label">Reported At</span>
-                    <p style={{ margin: 0 }}>{new Date(r.reported_at.replace(' ', 'T') + 'Z').toLocaleString()}</p>
+                    <p style={{ margin: 0 }}>{formatPhilippineDateTime(r.reported_at)}</p>
                   </div>
                 </div>
 

@@ -51,8 +51,8 @@ export default function OfficerLayout() {
     { label: 'Verifications', path: '/officer/verifications', icon: ShieldCheck },
     { label: 'Confirmations', path: '/officer/confirmations', icon: CheckSquareOffset },
     { label: 'Audit Logs', path: '/officer/audit-logs', icon: Scroll },
-    { label: 'Regional Demand', path: '/demand-map', icon: MapPin },
-    { label: 'Analytics', path: '/analytics', icon: ChartLineUp }
+    { label: 'Regional Demand Map', path: '/officer/demand-map', icon: MapPin },
+    { label: 'Analytics', path: '/officer/analytics', icon: ChartLineUp }
   ]
 
   const isActive = (path) => {
@@ -61,6 +61,12 @@ export default function OfficerLayout() {
     }
     if (path === '/officer/verifications') {
       return location.pathname === '/officer/verifications' || location.pathname === '/officer/verification'
+    }
+    if (path === '/officer/demand-map') {
+      return location.pathname === '/officer/demand-map' || location.pathname === '/demand-map'
+    }
+    if (path === '/officer/analytics') {
+      return location.pathname === '/officer/analytics' || location.pathname === '/analytics'
     }
     return location.pathname.startsWith(path)
   }
@@ -99,7 +105,23 @@ export default function OfficerLayout() {
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {collapsed ? <CaretRight size={16} /> : <CaretLeft size={16} />}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className={styles.collapseIcon}
+              aria-hidden="true"
+            >
+              <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.25" />
+              <line x1="5.5" y1="1.5" x2="5.5" y2="14.5" stroke="currentColor" strokeWidth="1.25" />
+              {collapsed ? (
+                <path d="M8.5 5.5L11 8L8.5 10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+              ) : (
+                <path d="M11 5.5L8.5 8L11 10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+              )}
+            </svg>
           </button>
         </div>
 

@@ -92,4 +92,49 @@ final class AuthThrottleRepository
 
         return !$this->isLocked($identifier, $nowUtc);
     }
+
+    public function recordFailureSeconds(string $identifier, int $maxAttempts, int $lockSeconds, string $nowUtc): void
+    {
+        $lockAt = gmdate('Y-m-d H:i:s', strtotime($nowUtc . ' UTC') + $lockSeconds);
+        $windowStart = gmdate('Y-m-d H:i:s', strtotime($nowUtc . ' UTC') - $lockSeconds);
+
+        $row = $this->find($identifier);
+        if ($row === null) {
+            $isLocked = ($maxAttempts < 1);
+            $stmt = Database::pdo()->prepare(
+                'INSERT INTO auth_throttle (identifier, failed_count, locked_until)
+                 VALUES (?, 1, ?)'
+            );
+            $stmt->execute([$identifier, $isLocked ? $lockAt : null]);
+            return;
+        }
+
+        if (!empty($row['locked_until']) && $row['locked_until'] > $nowUtc) {
+            return;
+        }
+
+        $isExpired = (!empty($row['locked_until']) && $row['locked_until'] <= $nowUtc)
+            || (empty($row['locked_until']) && !empty($row['updated_at']) && $row['updated_at'] < $windowStart);
+
+        $newCount = $isExpired ? 1 : ((int) $row['failed_count'] + 1);
+        $newLock = ($newCount > $maxAttempts) ? $lockAt : null;
+
+        $stmt = Database::pdo()->prepare(
+            'UPDATE auth_throttle 
+             SET failed_count = ?, locked_until = ?, updated_at = UTC_TIMESTAMP()
+             WHERE identifier = ?'
+        );
+        $stmt->execute([$newCount, $newLock, $identifier]);
+    }
+
+    public function hitAndCheckRateLimitSeconds(string $identifier, int $maxAttempts, int $windowSeconds, string $nowUtc): bool
+    {
+        if ($this->isLocked($identifier, $nowUtc)) {
+            return false;
+        }
+
+        $this->recordFailureSeconds($identifier, $maxAttempts, $windowSeconds, $nowUtc);
+
+        return !$this->isLocked($identifier, $nowUtc);
+    }
 }

@@ -76,8 +76,9 @@ final class DonationReportController
             return;
         }
 
-        $rows = (new DonationReportRepository())->listPendingByChapter($chapterId);
-        Response::success(['pending_reports' => array_map(static fn (array $r): array => [
+        $sort = Request::str('sort') ?? 'oldest';
+        $rows = (new DonationReportRepository())->listPendingByChapter($chapterId, $sort);
+        Response::success(['sort' => $sort, 'pending_reports' => array_map(static fn (array $r): array => [
             'id' => (int) $r['id'],
             'match_id' => (int) $r['match_id'],
             'donor_name' => (string) $r['donor_name'],

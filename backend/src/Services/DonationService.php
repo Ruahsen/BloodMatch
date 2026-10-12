@@ -36,7 +36,7 @@ final class DonationService
             throw new RuntimeException('This request is no longer active.', 409);
         }
 
-        return WorkflowLockService::transaction(function () use ($donorId, $matchId, $note, $match, $repo): array {
+        $result = WorkflowLockService::transaction(function () use ($donorId, $matchId, $note, $match, $repo): array {
             $request = WorkflowLockService::request((int) $match['request_id']);
             $users = WorkflowLockService::users([$donorId, (int) $request['requester_id']]);
             WorkflowLockService::assertActiveActor($users[$donorId]);
@@ -59,6 +59,46 @@ final class DonationService
             AuditLogger::log($donorId, 'donation.reported', 'donation_report', (string) $reportId, ['match_id' => $matchId]);
             return ['id' => $reportId, 'status' => 'PENDING'];
         });
+
+        $reportId = (int) $result['id'];
+        $requesterId = (int) $match['requester_id'];
+        $requestChapterId = (int) ($match['request_chapter_id'] ?? 0);
+        $requestId = (int) $match['request_id'];
+
+        // 1. To the blood request owner (requester_id): notifying them that a donor has submitted a donation report for their request.
+        NotificationService::notify(
+            $requesterId,
+            'donation.report_submitted',
+            'Donation report submitted',
+            sprintf('A donor has submitted a donation report for your blood request (#%d).', $requestId),
+            [
+                'related_type' => 'donation_report',
+                'related_id' => $reportId,
+                'dedup_key' => NotificationService::dedupDonationReportSubmitted($reportId),
+                'email' => NotificationService::EMAIL_NORMAL,
+            ]
+        );
+
+        // 2. To active chapter officers in request_chapter_id: notifying them that a donation report is awaiting confirmation in the chapter queue.
+        if ($requestChapterId > 0) {
+            $officerIds = (new UserRepository())->activeOfficersByChapter($requestChapterId);
+            foreach ($officerIds as $officerId) {
+                NotificationService::notify(
+                    $officerId,
+                    'donation.report_submitted',
+                    'New donation report awaiting confirmation',
+                    sprintf('A donation report (#%d) for request #%d is awaiting confirmation in the chapter queue.', $reportId, $requestId),
+                    [
+                        'related_type' => 'donation_report',
+                        'related_id' => $reportId,
+                        'dedup_key' => NotificationService::dedupDonationReportSubmitted($reportId, $officerId),
+                        'email' => NotificationService::EMAIL_NORMAL,
+                    ]
+                );
+            }
+        }
+
+        return $result;
     }
 
     public static function normalizeRejectionReason(mixed $value): string

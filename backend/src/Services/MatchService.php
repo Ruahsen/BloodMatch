@@ -180,11 +180,14 @@ final class MatchService
             }
         }
 
+        $sendEmergencyEmail = $onlyDonorId === null && $trigger === 'request_created';
+        $sendEmailOnMatch = $trigger === 'donor_verified';
         $notifiedDonorIds = NotificationService::notifyMatchGeneration(
             $request,
             $generation,
             $notificationCandidateIds,
-            $onlyDonorId === null && $trigger === 'request_created'
+            $sendEmergencyEmail,
+            $sendEmailOnMatch
         );
 
         if ($notifiedDonorIds !== []) {

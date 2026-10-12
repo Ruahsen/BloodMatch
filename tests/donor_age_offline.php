@@ -18,7 +18,9 @@ foreach ($rows as $row) {
 if (count($matrix) !== 8) {
     throw new RuntimeException('Offline matrix fixture must contain all eight recipient groups.');
 }
-(new ReflectionProperty(BloodCompatibilityService::class, 'cache'))->setValue(null, $matrix);
+$prop = new ReflectionProperty(BloodCompatibilityService::class, 'cache');
+$prop->setAccessible(true);
+$prop->setValue(null, $matrix);
 
 $passed = 0;
 function check(string $name, bool $condition): void

@@ -45,6 +45,13 @@ final class NotificationService
         return "donation:{$reportId}:{$decision}";
     }
 
+    public static function dedupDonationReportSubmitted(int $reportId, ?int $officerId = null): string
+    {
+        return $officerId !== null
+            ? "donation_report:{$reportId}:submitted:officer:{$officerId}"
+            : "donation_report:{$reportId}:submitted";
+    }
+
     public static function notifyVerificationRequested(
         int $memberId,
         string $memberName,
@@ -68,7 +75,7 @@ final class NotificationService
                     'related_type' => 'verification',
                     'related_id' => $memberId,
                     'dedup_key' => "verification-request:{$documentId}:admin:{$adminId}",
-                    'email' => self::EMAIL_NONE,
+                    'email' => self::EMAIL_NORMAL,
                 ]
             );
             if ($notificationId !== null) {
@@ -104,7 +111,7 @@ final class NotificationService
 
         $emailPriority = $options['email'] ?? self::EMAIL_NONE;
         if ($emailPriority !== self::EMAIL_NONE) {
-            self::attemptEmail($userId, $id, $title, $body, $emailPriority);
+            self::attemptEmail($userId, $id, $title, $body, $emailPriority, $type);
         }
 
         return $id;
@@ -127,10 +134,11 @@ final class NotificationService
         int $notificationId,
         string $subject,
         string $body,
-        string $priority
+        string $priority,
+        string $type = ''
     ): void {
         try {
-            self::attemptEmail($userId, $notificationId, $subject, $body, $priority);
+            self::attemptEmail($userId, $notificationId, $subject, $body, $priority, $type);
         } catch (\Throwable $e) {
             error_log('[notifications] best-effort email failed: ' . $e->getMessage());
         }
@@ -140,13 +148,18 @@ final class NotificationService
         array $request,
         int $generation,
         array $eligibleDonorIds,
-        bool $sendEmergencyEmail = false
+        bool $sendEmergencyEmail = false,
+        bool $sendEmailOnMatch = false
     ): array {
         $requestId = (int) $request['id'];
-        $emergency = (string) $request['urgency'] === 'emergency';
-        $emailPriority = $emergency && $sendEmergencyEmail
-            ? self::EMAIL_EMERGENCY
-            : self::EMAIL_NONE;
+        $emergency = (string) ($request['urgency'] ?? '') === 'emergency';
+        if ($emergency && ($sendEmergencyEmail || $sendEmailOnMatch)) {
+            $emailPriority = self::EMAIL_EMERGENCY;
+        } elseif ($sendEmailOnMatch) {
+            $emailPriority = self::EMAIL_NORMAL;
+        } else {
+            $emailPriority = self::EMAIL_NONE;
+        }
 
         $title = sprintf('New compatible donation opportunity (#%d)', $requestId);
         $body = sprintf(
@@ -184,37 +197,54 @@ final class NotificationService
         int $notificationId,
         string $subject,
         string $body,
-        string $priority
+        string $priority,
+        string $type = ''
     ): void {
-        if (!Mailer::isConfigured()) {
-            return;
-        }
-
-        $repo = new \BloodMatch\Repositories\NotificationRepository();
-
-        if ($priority !== self::EMAIL_EMERGENCY) {
-            if ($repo->emailCountInLastHour($userId, AuthService::nowUtc()) >= self::MAX_EMAILS_PER_USER_PER_HOUR) {
+        try {
+            if (!Mailer::isConfigured()) {
                 return;
             }
-        }
 
-        $user = (new \BloodMatch\Repositories\UserRepository())->findById($userId);
-        if ($user === null || !is_string($user['email']) || filter_var($user['email'], FILTER_VALIDATE_EMAIL) === false) {
-            return;
-        }
+            $repo = new \BloodMatch\Repositories\NotificationRepository();
 
-        if (empty($user['email_verified_at'])) {
-            return;
-        }
+            if ($priority !== self::EMAIL_EMERGENCY) {
+                if ($repo->emailCountInLastHour($userId, AuthService::nowUtc()) >= self::MAX_EMAILS_PER_USER_PER_HOUR) {
+                    return;
+                }
+            }
 
-        $sent = Mailer::send(
-            $user['email'],
-            '[BloodMatch] ' . $subject,
-            '<p>' . htmlspecialchars($body, ENT_QUOTES, 'UTF-8') . '</p>'
-        );
+            $user = (new \BloodMatch\Repositories\UserRepository())->findById($userId);
+            if ($user === null || !is_string($user['email']) || filter_var($user['email'], FILTER_VALIDATE_EMAIL) === false) {
+                return;
+            }
 
-        if ($sent) {
-            $repo->markEmailed($notificationId, AuthService::nowUtc());
+            // Only mass donor match broadcasts require email_verified_at to prevent broadcasting to unverified donor addresses.
+            // Direct transactional notifications (verification decisions, account status changes, match responses,
+            // donation reports, verification requests, etc.) must always be delivered to the registered account email.
+            if ($type === 'match.new' && empty($user['email_verified_at'])) {
+                return;
+            }
+
+            $formattedSubject = str_starts_with($subject, '[BloodMatch] ') ? $subject : '[BloodMatch] ' . $subject;
+            $htmlContent = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #111;">'
+                . '<h2 style="margin-top: 0; color: #b91c1c;">BloodMatch</h2>'
+                . '<h3 style="margin-top: 0; color: #1f2937;">' . htmlspecialchars($subject, ENT_QUOTES, 'UTF-8') . '</h3>'
+                . '<p style="font-size: 15px; line-height: 1.6; color: #374151;">' . nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8')) . '</p>'
+                . '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />'
+                . '<p style="color: #6b7280; font-size: 12px;">This is an automated notification from BloodMatch. Please do not reply directly to this email.</p>'
+                . '</div>';
+
+            $sent = Mailer::send(
+                $user['email'],
+                $formattedSubject,
+                $htmlContent
+            );
+
+            if ($sent) {
+                $repo->markEmailed($notificationId, AuthService::nowUtc());
+            }
+        } catch (\Throwable $e) {
+            error_log('[notification] email delivery failed for user ' . $userId . ': ' . $e->getMessage());
         }
     }
 }

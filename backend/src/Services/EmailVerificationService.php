@@ -19,6 +19,10 @@ final class EmailVerificationService
 
         (new UserRepository())->setEmailCode($userId, $codeHash, $expiresAt);
 
+        if (\BloodMatch\Config\AppConfig::debug()) {
+            error_log(sprintf('[otp] Verification code for user %d (%s): %s', $userId, $email, $code));
+        }
+
         if (Mailer::isConfigured()) {
             try {
                 $subject = $isResend

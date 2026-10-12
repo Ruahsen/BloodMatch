@@ -61,9 +61,9 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className={`${styles.container} ${collapsed ? styles.collapsed : ''}`} style={{ paddingBlock: 0, paddingLeft: 0, minHeight: '100vh', gap: 0 }}>
+    <div className={`${styles.container} ${collapsed ? styles.collapsed : ''}`}>
       {/* Mobile Drawer Bar */}
-      <div className={styles.mobileBar} style={{ padding: 'var(--space-4)' }}>
+      <div className={styles.mobileBar}>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
@@ -76,106 +76,43 @@ export default function AdminLayout() {
       </div>
 
       {/* Persistent Sidebar Navigation */}
-      <aside 
-        className={`${styles.sidebar} ${mobileDrawerOpen ? styles.sidebarMobileOpen : ''}`}
-        style={{
-          borderRadius: 0,
-          borderTop: 'none',
-          borderBottom: 'none',
-          borderLeft: 'none',
-          top: '64px',
-          minHeight: 'calc(100vh - 64px)',
-          height: 'calc(100vh - 64px)',
-          marginBottom: 0,
-          paddingTop: 'var(--space-5)',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'sticky',
-          alignSelf: 'start',
-          overflowY: 'auto'
-        }}
-      >
-        <div className={styles.sidebarHeader} style={{ borderBottom: 'none', marginBottom: 'var(--space-4)', alignItems: 'center' }}>
-          {/* User Profile Section at Top */}
+      <aside className={`${styles.sidebar} ${mobileDrawerOpen ? styles.sidebarMobileOpen : ''}`}>
+        <div className={styles.sidebarHeader}>
           {!collapsed && (
-            <Link to="/profile" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              overflow: 'hidden',
-              transition: 'all 0.2s',
-              textDecoration: 'none',
-              flex: 1,
-              minWidth: 0
-            }}>
-              {user?.profile_picture_url ? (
-                <img 
-                  src={user.profile_picture_url} 
-                  alt={user?.full_name} 
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    flexShrink: 0,
-                    backgroundColor: 'var(--color-surface-sunken)'
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    if (e.currentTarget.nextElementSibling) {
-                      e.currentTarget.nextElementSibling.style.display = 'flex';
-                    }
-                  }}
-                />
-              ) : null}
-              <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                background: 'var(--color-brand-navy)',
-                color: 'white',
-                display: user?.profile_picture_url ? 'none' : 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                flexShrink: 0
-              }}>
-                {user?.full_name?.charAt(0) || 'A'}
-              </div>
-              
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {user?.full_name}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Administrator
-                </div>
-              </div>
-            </Link>
+            <div className={styles.titleBlock}>
+              <span className={styles.badge}>System Administration</span>
+              <h3 className={styles.title}>Admin Portal</h3>
+            </div>
           )}
 
           <button
             type="button"
+            className={styles.collapseBtn}
             onClick={toggleCollapse}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--color-text)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '4px',
-              marginLeft: collapsed ? '0' : 'auto'
-            }}
           >
-            <List size={22} />
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className={styles.collapseIcon}
+              aria-hidden="true"
+            >
+              <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.25" />
+              <line x1="5.5" y1="1.5" x2="5.5" y2="14.5" stroke="currentColor" strokeWidth="1.25" />
+              {collapsed ? (
+                <path d="M8.5 5.5L11 8L8.5 10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+              ) : (
+                <path d="M11 5.5L8.5 8L11 10.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+              )}
+            </svg>
           </button>
         </div>
 
-        <nav className={styles.nav} aria-label="Admin Navigation" style={{ flex: 1 }}>
+        <nav className={styles.nav} aria-label="Admin Navigation">
           <div className={styles.sectionLabel}>
             {!collapsed ? 'Administrative Tools' : '•••'}
           </div>
@@ -210,10 +147,32 @@ export default function AdminLayout() {
             {!collapsed && <span className={styles.navLabel}>Public Home</span>}
           </Link>
         </nav>
+
+        <div className={styles.sidebarFooter}>
+          {!collapsed ? (
+            <Link to="/profile" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', textDecoration: 'none', color: 'inherit' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--color-brand-navy)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8125rem' }}>
+                {user?.full_name?.charAt(0) || 'A'}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.full_name}
+                </div>
+                <div className="muted" style={{ fontSize: '0.6875rem' }}>Administrator</div>
+              </div>
+            </Link>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--color-brand-navy)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem' }} title={user?.full_name}>
+                {user?.full_name?.charAt(0) || 'A'}
+              </div>
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* Dynamic Main Viewport via React Router Outlet */}
-      <section className={styles.mainContent} style={{ padding: 'var(--space-6)' }}>
+      <section className={styles.mainContent}>
         <Outlet />
       </section>
     </div>

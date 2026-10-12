@@ -159,15 +159,17 @@ final class AnalyticsRepository
         $pdrStmt->execute([$chapterId]);
         $pendingDonationReports = (int) $pdrStmt->fetchColumn();
 
-        // 4. Active OPEN requests in chapter
+        $nowUtc = \BloodMatch\Services\AuthService::nowUtc();
+
+        // 4. Active OPEN requests in chapter (excluding expired/fulfilled/cancelled)
         $reqStmt = $pdo->prepare(
             'SELECT COUNT(id) AS open_count,
                     COALESCE(SUM(quantity_units), 0) AS units_needed,
                     COALESCE(SUM(CASE WHEN urgency IN (\'urgent\', \'emergency\') THEN 1 ELSE 0 END), 0) AS urgent_count
              FROM blood_requests
-             WHERE request_chapter_id = ? AND status = \'OPEN\''
+             WHERE request_chapter_id = ? AND status = \'OPEN\' AND needed_datetime >= ?'
         );
-        $reqStmt->execute([$chapterId]);
+        $reqStmt->execute([$chapterId, $nowUtc]);
         $reqSummary = $reqStmt->fetch(PDO::FETCH_ASSOC);
 
         $activeOpenRequests = (int) ($reqSummary['open_count'] ?? 0);
@@ -176,22 +178,34 @@ final class AnalyticsRepository
 
         // 5. Demand by blood type in chapter
         $btStmt = $pdo->prepare(
-            'SELECT required_blood_type, COALESCE(SUM(quantity_units), 0) AS units
+            'SELECT required_blood_type,
+                    COUNT(id) AS requests_count,
+                    COALESCE(SUM(quantity_units), 0) AS units_needed
              FROM blood_requests
-             WHERE request_chapter_id = ? AND status = \'OPEN\'
+             WHERE request_chapter_id = ? AND status = \'OPEN\' AND needed_datetime >= ?
              GROUP BY required_blood_type'
         );
-        $btStmt->execute([$chapterId]);
+        $btStmt->execute([$chapterId, $nowUtc]);
         $btRows = $btStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $demandByBloodType = [];
         foreach (self::BLOOD_TYPES as $bt) {
-            $demandByBloodType[$bt] = 0;
+            $demandByBloodType[$bt] = [
+                'requests_count' => 0,
+                'units_needed' => 0,
+                'requests' => 0,
+                'units' => 0,
+            ];
         }
         foreach ($btRows as $r) {
             $bt = (string) $r['required_blood_type'];
             if (isset($demandByBloodType[$bt])) {
-                $demandByBloodType[$bt] = (int) $r['units'];
+                $demandByBloodType[$bt] = [
+                    'requests_count' => (int) $r['requests_count'],
+                    'units_needed' => (int) $r['units_needed'],
+                    'requests' => (int) $r['requests_count'],
+                    'units' => (int) $r['units_needed'],
+                ];
             }
         }
 
@@ -221,7 +235,9 @@ final class AnalyticsRepository
             'metrics' => [
                 'pending_verifications' => $pendingVerifications,
                 'pending_donation_reports' => $pendingDonationReports,
+                'pending_donation_confirmations' => $pendingDonationReports,
                 'active_open_requests' => $activeOpenRequests,
+                'open_requests' => $activeOpenRequests,
                 'total_units_needed' => $totalUnitsNeeded,
                 'urgent_open_requests' => $urgentOpenRequests,
                 'enrolled_donors' => $donorPool['total_enrolled'],
@@ -370,14 +386,23 @@ final class AnalyticsRepository
                 'total_officers' => $totalOfficers,
                 'total_requests_all_time' => $totalReqs,
                 'active_open_requests' => $openCount,
+                'open_requests' => $openCount,
                 'open_units_needed' => $openUnits,
+                'total_units_needed' => $openUnits,
                 'fulfilled_requests' => $fulfilledCount,
+                'fulfilled' => $fulfilledCount,
                 'cancelled_requests' => $cancelledCount,
+                'cancelled' => $cancelledCount,
                 'expired_requests' => $expiredCount,
+                'expired' => $expiredCount,
                 'resolved_requests' => $resolvedCount,
                 'fulfillment_rate_percent' => $fulfillmentRate,
+                'fulfillment_rate' => $fulfillmentRate,
                 'cancellation_rate_percent' => $cancellationRate,
+                'cancellation_rate' => $cancellationRate,
                 'expiration_rate_percent' => $expirationRate,
+                'expiration_rate' => $expirationRate,
+                'expiry_rate' => $expirationRate,
                 'pending_verifications' => $pendingVerifications,
                 'pending_donation_reports' => $pendingDonationReports,
                 'enrolled_donors' => $donorPool['total_enrolled'],
@@ -402,14 +427,34 @@ final class AnalyticsRepository
         // 1. Determine effective chapter filter
         $targetChapterId = $scopedChapterId ?? (isset($filters['chapter_id']) && is_numeric($filters['chapter_id']) ? (int) $filters['chapter_id'] : null);
 
-        // 2. Date ranges (default: last 30 days)
-        $dateTo = isset($filters['date_to']) && is_string($filters['date_to']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($filters['date_to']))
-            ? trim($filters['date_to']) . ' 23:59:59'
-            : gmdate('Y-m-d 23:59:59');
+        // 2. Date ranges (in Philippine time Asia/Manila, converted to UTC boundaries)
+        if (isset($filters['date_to']) && is_string($filters['date_to']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($filters['date_to']))) {
+            $phtEnd = trim($filters['date_to']) . ' 23:59:59';
+            $dateTo = (new \DateTimeImmutable($phtEnd, new \DateTimeZone('Asia/Manila')))
+                ->setTimezone(new \DateTimeZone('UTC'))
+                ->format('Y-m-d H:i:s');
+            $displayDateTo = trim($filters['date_to']);
+        } else {
+            $dateTo = gmdate('Y-m-d H:i:s');
+            $displayDateTo = (new \DateTimeImmutable($dateTo, new \DateTimeZone('UTC')))
+                ->setTimezone(new \DateTimeZone('Asia/Manila'))
+                ->format('Y-m-d');
+        }
 
-        $dateFrom = isset($filters['date_from']) && is_string($filters['date_from']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($filters['date_from']))
-            ? trim($filters['date_from']) . ' 00:00:00'
-            : gmdate('Y-m-d 00:00:00', strtotime('-30 days'));
+        if (isset($filters['date_from']) && is_string($filters['date_from']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($filters['date_from']))) {
+            $phtStart = trim($filters['date_from']) . ' 00:00:00';
+            $dateFrom = (new \DateTimeImmutable($phtStart, new \DateTimeZone('Asia/Manila')))
+                ->setTimezone(new \DateTimeZone('UTC'))
+                ->format('Y-m-d H:i:s');
+            $displayDateFrom = trim($filters['date_from']);
+        } else {
+            $dateFrom = (new \DateTimeImmutable('-30 days 00:00:00', new \DateTimeZone('Asia/Manila')))
+                ->setTimezone(new \DateTimeZone('UTC'))
+                ->format('Y-m-d H:i:s');
+            $displayDateFrom = (new \DateTimeImmutable($dateFrom, new \DateTimeZone('UTC')))
+                ->setTimezone(new \DateTimeZone('Asia/Manila'))
+                ->format('Y-m-d');
+        }
 
         // 3. Request metrics within window
         $reqWhere = ['created_at BETWEEN ? AND ?'];
@@ -479,9 +524,9 @@ final class AnalyticsRepository
         $urgRows = $urgStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $demandByUrgency = [
-            'routine' => ['requests' => 0, 'units' => 0],
-            'urgent' => ['requests' => 0, 'units' => 0],
-            'emergency' => ['requests' => 0, 'units' => 0],
+            'routine' => ['requests' => 0, 'units' => 0, 'requests_count' => 0, 'units_needed' => 0],
+            'urgent' => ['requests' => 0, 'units' => 0, 'requests_count' => 0, 'units_needed' => 0],
+            'emergency' => ['requests' => 0, 'units' => 0, 'requests_count' => 0, 'units_needed' => 0],
         ];
         foreach ($urgRows as $r) {
             $urg = (string) $r['urgency'];
@@ -489,18 +534,36 @@ final class AnalyticsRepository
                 $demandByUrgency[$urg] = [
                     'requests' => (int) $r['req_count'],
                     'units' => (int) $r['units'],
+                    'requests_count' => (int) $r['req_count'],
+                    'units_needed' => (int) $r['units'],
                 ];
             }
         }
 
-        // 6. Daily request trend
+        // 6. Daily request trend grouped by Philippine calendar date (UTC+8)
         $trendStmt = $pdo->prepare(
-            "SELECT DATE(created_at) AS req_date, COUNT(id) AS req_count
+            "SELECT DATE(CONVERT_TZ(created_at, '+00:00', '+08:00')) AS date,
+                    DATE(CONVERT_TZ(created_at, '+00:00', '+08:00')) AS req_date,
+                    COUNT(id) AS requests_created,
+                    COUNT(id) AS req_count,
+                    COALESCE(SUM(quantity_units), 0) AS units_requested,
+                    COALESCE(SUM(CASE WHEN status = 'FULFILLED' THEN 1 ELSE 0 END), 0) AS fulfilled,
+                    COALESCE(SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS cancelled,
+                    COALESCE(SUM(CASE WHEN status = 'EXPIRED' THEN 1 ELSE 0 END), 0) AS expired
              FROM blood_requests WHERE {$whereSql}
-             GROUP BY DATE(created_at) ORDER BY req_date ASC"
+             GROUP BY DATE(CONVERT_TZ(created_at, '+00:00', '+08:00')) ORDER BY date ASC"
         );
         $trendStmt->execute($reqParams);
         $dailyTrend = $trendStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($dailyTrend as &$tRow) {
+            $tRow['requests_created'] = (int) $tRow['requests_created'];
+            $tRow['req_count'] = (int) $tRow['req_count'];
+            $tRow['units_requested'] = (int) $tRow['units_requested'];
+            $tRow['fulfilled'] = (int) $tRow['fulfilled'];
+            $tRow['cancelled'] = (int) $tRow['cancelled'];
+            $tRow['expired'] = (int) $tRow['expired'];
+        }
+        unset($tRow);
 
         // 7. Donor pool live eligibility breakdown in scope
         $donorWhere = [
@@ -599,20 +662,28 @@ final class AnalyticsRepository
         $completedMatches = (int) $matchStmt->fetchColumn();
 
         return [
-            'date_from' => substr($dateFrom, 0, 10),
-            'date_to' => substr($dateTo, 0, 10),
+            'date_from' => $displayDateFrom,
+            'date_to' => $displayDateTo,
             'chapter_id' => $targetChapterId,
             'request_volume' => [
                 'total_requests' => $totalReqs,
                 'open_requests' => $openCount,
                 'fulfilled_requests' => $fulfilledCount,
+                'fulfilled' => $fulfilledCount,
                 'cancelled_requests' => $cancelledCount,
+                'cancelled' => $cancelledCount,
                 'expired_requests' => $expiredCount,
+                'expired' => $expiredCount,
                 'resolved_requests' => $resolvedCount,
+                'resolved_denominator' => $resolvedCount,
                 'total_units_requested' => $totalUnits,
+                'total_units_needed' => $totalUnits,
                 'fulfillment_rate_percent' => $fulfillmentRate,
+                'fulfillment_rate' => $fulfillmentRate,
                 'cancellation_rate_percent' => $cancellationRate,
+                'cancellation_rate' => $cancellationRate,
                 'expiration_rate_percent' => $expirationRate,
+                'expiration_rate' => $expirationRate,
             ],
             'demand_by_blood_type' => $demandByBloodType,
             'demand_by_urgency' => $demandByUrgency,

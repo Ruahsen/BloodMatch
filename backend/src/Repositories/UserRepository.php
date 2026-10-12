@@ -243,6 +243,8 @@ final class UserRepository
         $countStmt->execute($params);
         $total = (int) $countStmt->fetchColumn();
 
+        $sortOrder = strtolower((string) ($filters['sort'] ?? 'oldest')) === 'newest' ? 'DESC' : 'ASC';
+
         $stmt = Database::pdo()->prepare(
             "SELECT u.id, u.email, u.full_name, u.chapter_id, u.date_of_birth,
                     u.blood_type, u.blood_type_source, u.blood_type_verified,
@@ -256,7 +258,7 @@ final class UserRepository
              GROUP BY u.id, u.email, u.full_name, u.chapter_id, u.date_of_birth,
                       u.blood_type, u.blood_type_source, u.blood_type_verified,
                       u.verification_status, u.created_at, c.name
-             ORDER BY latest_national_id_uploaded_at ASC, u.id ASC
+             ORDER BY COALESCE(MAX(md.uploaded_at), u.created_at) {$sortOrder}, u.id {$sortOrder}
              LIMIT " . (int) $pageSize . " OFFSET " . (int) $offset
         );
         $stmt->execute($params);
@@ -270,6 +272,15 @@ final class UserRepository
             "SELECT id FROM users WHERE role = ? AND account_status = 'active' ORDER BY id ASC"
         );
         $stmt->execute([$role]);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    public function activeOfficersByChapter(int $chapterId): array
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT id FROM users WHERE role = 'officer' AND chapter_id = ? AND account_status = 'active' ORDER BY id ASC"
+        );
+        $stmt->execute([$chapterId]);
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 

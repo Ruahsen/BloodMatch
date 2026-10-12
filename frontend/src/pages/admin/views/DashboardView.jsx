@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
+import { formatPhilippineDateTime } from '../../../services/dateTime'
 
 export default function DashboardView() {
   const [data, setData] = useState(null)
@@ -183,7 +184,7 @@ export default function DashboardView() {
             <table>
               <thead>
                 <tr>
-                  <th>Timestamp (UTC)</th>
+                  <th>Timestamp</th>
                   <th>Action Event</th>
                   <th>Actor</th>
                   <th>Target Type & ID</th>
@@ -192,7 +193,7 @@ export default function DashboardView() {
               <tbody>
                 {recentLogs.map((log) => (
                   <tr key={log.id}>
-                    <td style={{ fontSize: 'var(--text-xs)' }}><code>{log.created_at}</code></td>
+                    <td style={{ fontSize: 'var(--text-xs)' }}><code>{formatPhilippineDateTime(log.created_at)}</code></td>
                     <td style={{ fontSize: 'var(--text-sm)' }}><strong>{log.action}</strong></td>
                     <td style={{ fontSize: 'var(--text-sm)' }}>{log.actor_name || (log.actor_id ? `User #${log.actor_id}` : 'System / Unauth')}</td>
                     <td style={{ fontSize: 'var(--text-sm)' }}>{log.target_type ? `${log.target_type} #${log.target_id}` : '–'}</td>

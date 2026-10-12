@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X } from '@phosphor-icons/react'
+import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import { useChat } from '../context/ChatContext'
 import { useRequestCreation } from '../context/RequestCreationContext'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
@@ -31,6 +32,7 @@ export default function MatchesPage() {
   const location = useLocation()
   const openCreateRequest = useRequestCreation()
   const { user, refresh } = useAuth()
+  const { openChatWithUser } = useChat()
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
   const [errorAlert, setErrorAlert] = useState(null)
   const [message, setMessage] = useState(null)
@@ -72,7 +74,8 @@ export default function MatchesPage() {
   const isRequesterView = viewerMode === 'requester'
   const isOwnRequest = request && String(request.requester_id) === String(user?.id)
   const hasActiveResponse = ['RESPONDED', 'COMPLETED'].includes(ownMatch?.status)
-  const canRespond = !isRequesterView && request?.can_respond === true && !hasActiveResponse
+  const isEnrolledNow = Boolean(user && user.donor_enrolled === true)
+  const canRespond = !isRequesterView && (request?.can_respond === true || (isEnrolledNow && request?.reason_code === 'not_enrolled' && user?.verification_status === 'verified')) && !hasActiveResponse
 
   const respond = async () => {
     if (!canRespond || responseBusyRef.current) return
@@ -171,7 +174,7 @@ export default function MatchesPage() {
             <select id="matches-request" value={id} onChange={(event) => navigate(`/requests/${event.target.value}/matches`)}>
               {selectorRequests.map((item) => (
                 <option key={item.id} value={item.id} title={`${item.required_blood_type} • ${item.facility_name} • ${item.urgency}`}>
-                  {item.required_blood_type} • {item.facility_name.length > 36 ? `${item.facility_name.slice(0, 35)}…` : item.facility_name} • {item.urgency.charAt(0).toUpperCase() + item.urgency.slice(1)}{item.status !== 'OPEN' ? ` • ${item.status}` : ''}
+                  {item.required_blood_type} • {item.facility_name?.length > 36 ? `${item.facility_name.slice(0, 35)}…` : item.facility_name} • {item.urgency ? item.urgency.charAt(0).toUpperCase() + item.urgency.slice(1) : ''}{item.status !== 'OPEN' ? ` • ${item.status}` : ''}
                   {selectorRequests.filter((other) => other.required_blood_type === item.required_blood_type && other.facility_name === item.facility_name && other.urgency === item.urgency).length > 1 ? ` • Needed ${formatDate(item.needed_datetime)}` : ''}
                 </option>
               ))}
@@ -180,7 +183,18 @@ export default function MatchesPage() {
           {isOwnRequest && requestsLoading && <p role="status">Loading active requests…</p>}
           {isOwnRequest && requestsError && <div role="alert"><p>Active requests could not be loaded: {requestsError.message}</p><Button variant="secondary" onClick={() => reloadRequests()}>Try again</Button></div>}
         </header>
-      ) : <Link className={styles.backLink} to="/"><ArrowLeft size={16} /> Compatible requests</Link>}
+      ) : (
+        <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+          {hasActiveResponse && (
+            <Link className={styles.backLink} to="/responses" style={{ marginBottom: 0 }}>
+              <ArrowLeft size={16} /> My Responses
+            </Link>
+          )}
+          <Link className={styles.backLink} to="/" style={{ marginBottom: 0 }}>
+            {hasActiveResponse ? null : <ArrowLeft size={16} />} Compatible requests
+          </Link>
+        </div>
+      )}
 
       {message && <div className="alert alert-success" role="status">{message}</div>}
       {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
@@ -211,13 +225,34 @@ export default function MatchesPage() {
 
         <div className={styles.requestActions}>
           <div className={styles.profileActions}>
-            {!isOwnRequest && request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
+            {!isOwnRequest && request.can_view_requester_profile && (
+              <>
+                <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openChatWithUser(request.requester_id, { name: request.requester_name || 'Requester' })}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <ChatCircleDots size={16} weight="regular" /> Message
+                </Button>
+              </>
+            )}
           </div>
           <div className={styles.donorActions}>
             {!isRequesterView && !hasActiveResponse && <Button disabled={!canRespond || actionLoading} onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
             {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
             {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel help</Button>}
-            {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
+            {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && (
+              !user?.donor_enrolled ? (
+                <Button to="/profile" variant="primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Drop size={16} weight="fill" /> Enroll as donor
+                </Button>
+              ) : (
+                <Button to="/profile" variant="secondary">Review donor eligibility</Button>
+              )
+            )}
           </div>
         </div>
         {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && <p className={styles.eligibilityNote}>{request.reason_text || eligibilityMessage(user)}{request.eligible_again_at && ` Eligible again: ${formatDate(request.eligible_again_at)}.`}</p>}
@@ -237,7 +272,20 @@ export default function MatchesPage() {
                   <div className={styles.matchMetric}><span>Availability</span><strong>{match.availability || 'Not provided'}</strong></div>
                   <div className={styles.matchMetric}><span>Distance</span><strong>{match.approximate_distance_km !== null ? `About ${match.approximate_distance_km} km` : 'Not available'}</strong></div>
                   <Badge variant={match.status === 'COMPLETED' ? 'success' : match.status === 'RESPONDED' ? 'brand' : 'neutral'}>{match.status}</Badge>
-                  {match.profile_user_id && <Button to={`/profile/${match.profile_user_id}`} variant="secondary" size="sm">View profile</Button>}
+                  {match.profile_user_id && (
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Button to={`/profile/${match.profile_user_id}`} variant="secondary" size="sm">View profile</Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => openChatWithUser(match.profile_user_id, { name: match.display_name })}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                      >
+                        <ChatCircleDots size={16} weight="regular" /> Message
+                      </Button>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

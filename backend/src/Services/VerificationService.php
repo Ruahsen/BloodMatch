@@ -100,6 +100,9 @@ final class VerificationService
             }
 
             if ($decision === 'verified') {
+                if (empty($target['email_verified_at'])) {
+                    $users->markEmailVerified($targetId, $nowUtc);
+                }
                 (new MatchService())->refreshMatchesForDonor(
                     $targetId,
                     'donor_verified',

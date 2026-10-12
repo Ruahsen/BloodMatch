@@ -7,6 +7,7 @@ use BloodMatch\Controllers\Admin\AuditLogAdminController;
 use BloodMatch\Controllers\Admin\UserAdminController;
 use BloodMatch\Controllers\Analytics\AnalyticsController;
 use BloodMatch\Controllers\Analytics\DemandMapController;
+use BloodMatch\Controllers\ChatController;
 use BloodMatch\Controllers\Auth\CsrfController;
 use BloodMatch\Controllers\CompatibilityController;
 use BloodMatch\Controllers\DocumentController;
@@ -84,6 +85,7 @@ return static function (Router $router): void {
     $router->add('POST', '/api/requests', [new RequestsController(), 'create']);
     $router->add('GET', '/api/home-feed', [new RequestsController(), 'homeFeed']);
     $router->add('GET', '/api/my/requests', [new RequestsController(), 'mine']);
+    $router->add('GET', '/api/my/responses', [new RequestsController(), 'myResponses']);
     $router->add('GET', '/api/requests/{id}', [new RequestsController(), 'show']);
     $router->add('PUT', '/api/requests/{id}', [new RequestsController(), 'update']);
     $router->add('POST', '/api/requests/{id}/cancel', [new RequestsController(), 'cancel']);
@@ -114,4 +116,12 @@ return static function (Router $router): void {
     $router->add('GET', '/api/notifications/unread-count', [new NotificationsController(), 'unreadCount']);
     $router->add('POST', '/api/notifications/{id}/read', [new NotificationsController(), 'markRead']);
     $router->add('POST', '/api/notifications/read-all', [new NotificationsController(), 'markAllRead']);
+
+    $router->add('GET', '/api/chat/unread-count', [new ChatController(), 'unreadCount']);
+    $router->add('GET', '/api/chat/conversations', [new ChatController(), 'conversations']);
+    $router->add('POST', '/api/chat/conversations', [new ChatController(), 'startConversation']);
+    $router->add('GET', '/api/chat/conversations/{id}', [new ChatController(), 'conversation']);
+    $router->add('GET', '/api/chat/conversations/{id}/messages', [new ChatController(), 'messages']);
+    $router->add('POST', '/api/chat/conversations/{id}/messages', [new ChatController(), 'sendMessage']);
+    $router->add('POST', '/api/chat/conversations/{id}/read', [new ChatController(), 'markRead']);
 };

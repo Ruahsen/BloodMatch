@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
+import { formatPhilippineDateTime } from '../../../services/dateTime'
 
 export default function VerificationView() {
   const [queue, setQueue] = useState(null)
@@ -12,17 +13,30 @@ export default function VerificationView() {
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [sortOrder, setSortOrder] = useState('oldest')
 
-  const loadQueue = useCallback(() => {
+  const loadQueue = useCallback((sort = sortOrder) => {
     return api
-      .get('/api/officer/verifications')
+      .get(`/api/officer/verifications?sort=${sort}`)
       .then((data) => setQueue(data))
       .catch((err) => setErrorAlert(err.message))
-  }, [])
+  }, [sortOrder])
 
   useEffect(() => {
     loadQueue()
   }, [loadQueue])
+
+  const sortedQueue = useMemo(() => {
+    if (!queue?.queue) return []
+    return [...queue.queue].sort((a, b) => {
+      const timeA = new Date(a.latest_national_id_uploaded_at || a.created_at || 0).getTime()
+      const timeB = new Date(b.latest_national_id_uploaded_at || b.created_at || 0).getTime()
+      if (timeA !== timeB) {
+        return sortOrder === 'oldest' ? timeA - timeB : timeB - timeA
+      }
+      return sortOrder === 'oldest' ? a.id - b.id : b.id - a.id
+    })
+  }, [queue, sortOrder])
 
   const openDetail = (userId) => {
     setErrorAlert(null)
@@ -82,8 +96,38 @@ export default function VerificationView() {
 
       {!detail ? (
         <section className="card">
-          <div className="card-header">
-            <h3>Pending Verifications ({queue.queue.length})</h3>
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+            <h3 style={{ margin: 0 }}>Pending Verifications ({queue.queue.length})</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <label htmlFor="verifications-sort-order" style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                Sort:
+              </label>
+              <select
+                id="verifications-sort-order"
+                value={sortOrder}
+                aria-label="Sort pending verifications"
+                onChange={(e) => {
+                  const newSort = e.target.value
+                  setSortOrder(newSort)
+                  loadQueue(newSort)
+                }}
+                className="select"
+                style={{
+                  minHeight: '38px',
+                  padding: 'var(--space-1) var(--space-3)',
+                  borderRadius: 'var(--radius-control)',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text)',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="oldest">Oldest to Newest</option>
+                <option value="newest">Newest to Oldest</option>
+              </select>
+            </div>
           </div>
 
           {queue.queue.length === 0 ? (
@@ -98,14 +142,20 @@ export default function VerificationView() {
                   <tr>
                     <th>Member Name</th>
                     <th>Email Address</th>
+                    <th>Submitted</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {queue.queue.map((m) => (
+                  {sortedQueue.map((m) => (
                     <tr key={m.id}>
                       <td><strong>{m.full_name}</strong></td>
                       <td><code>{m.email}</code></td>
+                      <td style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                        {m.latest_national_id_uploaded_at
+                          ? formatPhilippineDateTime(m.latest_national_id_uploaded_at)
+                          : (m.created_at ? formatPhilippineDateTime(m.created_at) : '—')}
+                      </td>
                       <td>
                         <button type="button" className="btn btn-sm" onClick={() => openDetail(m.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                           Review Documents <ArrowRight size={14} weight="regular" aria-hidden="true" />

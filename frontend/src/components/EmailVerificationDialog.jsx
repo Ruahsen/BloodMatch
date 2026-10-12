@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle, EnvelopeSimple, WarningCircle, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useAuth } from '../context/AuthContext'
 import styles from './EmailVerificationDialog.module.css'
 
 const emptyCode = () => Array(6).fill('')
 
 export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, initialEmail = '' }) {
+  const { refresh } = useAuth()
   const [code, setCode] = useState(emptyCode)
   const [status, setStatus] = useState('idle') // idle, sending, error, success, rate_limited
   const [errorMsg, setErrorMsg] = useState('')
@@ -35,10 +37,13 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
     if (code.some((digit) => !digit)) return
     setStatus('sending')
     try {
-      await api.post('/api/auth/verify', { email: initialEmail, code: code.join('') })
+      const res = await api.post('/api/auth/verify', { email: initialEmail, code: code.join('') })
+      if (refresh) {
+        await refresh()
+      }
       setStatus('success')
       if (onSuccess) {
-        setTimeout(onSuccess, 1500)
+        setTimeout(() => onSuccess(res?.user), 1500)
       }
     } catch (err) {
       setStatus('error')

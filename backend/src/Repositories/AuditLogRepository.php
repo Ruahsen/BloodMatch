@@ -88,13 +88,25 @@ final class AuditLogRepository
         }
 
         if (isset($filters['date_from']) && is_string($filters['date_from']) && trim($filters['date_from']) !== '') {
+            $fromRaw = trim($filters['date_from']);
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromRaw)) {
+                $fromRaw = (new \DateTimeImmutable($fromRaw . ' 00:00:00', new \DateTimeZone('Asia/Manila')))
+                    ->setTimezone(new \DateTimeZone('UTC'))
+                    ->format('Y-m-d H:i:s');
+            }
             $where[] = 'a.created_at >= ?';
-            $params[] = trim($filters['date_from']);
+            $params[] = $fromRaw;
         }
 
         if (isset($filters['date_to']) && is_string($filters['date_to']) && trim($filters['date_to']) !== '') {
+            $toRaw = trim($filters['date_to']);
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $toRaw)) {
+                $toRaw = (new \DateTimeImmutable($toRaw . ' 23:59:59', new \DateTimeZone('Asia/Manila')))
+                    ->setTimezone(new \DateTimeZone('UTC'))
+                    ->format('Y-m-d H:i:s');
+            }
             $where[] = 'a.created_at <= ?';
-            $params[] = trim($filters['date_to']);
+            $params[] = $toRaw;
         }
 
         $whereClause = $where === [] ? '' : 'WHERE ' . implode(' AND ', $where);

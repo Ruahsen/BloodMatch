@@ -106,10 +106,11 @@ final class DonationReportRepository
         $stmt->execute([$officerId, $nowUtc, $reason, $id]);
     }
 
-    public function listPendingByChapter(?int $chapterId): array
+    public function listPendingByChapter(?int $chapterId, string $sort = 'oldest'): array
     {
         $chapterFilter = $chapterId === null ? '' : 'AND br.request_chapter_id = ?';
         $params = $chapterId === null ? [] : [$chapterId];
+        $sortDir = strtolower($sort) === 'newest' ? 'DESC' : 'ASC';
 
         $stmt = Database::pdo()->prepare(
             "SELECT dr.id, dr.match_id, dr.donor_id, dr.report_note, dr.reported_at,
@@ -120,7 +121,7 @@ final class DonationReportRepository
              JOIN matches m ON m.id = dr.match_id
              JOIN blood_requests br ON br.id = m.request_id
              WHERE dr.status = 'PENDING' $chapterFilter
-             ORDER BY dr.reported_at ASC"
+             ORDER BY dr.reported_at {$sortDir}, dr.id {$sortDir}"
         );
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

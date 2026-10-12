@@ -19,7 +19,9 @@ final class OfflineWorkflowPDO extends PDO
     public function rollBack(): bool { $this->events[] = 'rollback'; $this->active = false; return true; }
 }
 $pdo = new OfflineWorkflowPDO();
-(new ReflectionProperty(Database::class, 'pdo'))->setValue(null, $pdo);
+$prop = new ReflectionProperty(Database::class, 'pdo');
+$prop->setAccessible(true);
+$prop->setValue(null, $pdo);
 $passed = 0;
 function check(string $label, bool $ok): void {
     global $passed;

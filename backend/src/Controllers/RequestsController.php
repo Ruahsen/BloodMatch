@@ -105,6 +105,16 @@ final class RequestsController
         )]);
     }
 
+    public function myResponses(): void
+    {
+        $actor = AuthMiddleware::requireActiveUser('requests.my_responses');
+        $rows = (new BloodRequestRepository())->listByRespondedDonor((int) $actor['id']);
+        Response::success(['responses' => array_map(
+            static fn (array $row): array => RequestService::publicView($row, null),
+            $rows
+        )]);
+    }
+
     public function homeFeed(): void
     {
         $actor = AuthMiddleware::requireAuthenticatedUser('requests.home_feed');
